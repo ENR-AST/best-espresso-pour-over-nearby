@@ -31,6 +31,25 @@ function getDistanceScore(distanceMiles: number): number {
   return 2;
 }
 
+function getCoffeeFocusBonus(shop: CoffeeShop): number {
+  const signalCount = shop.signalNotes?.length ?? 0;
+  const avoidCount = shop.avoidNotes?.length ?? 0;
+
+  return Math.min(signalCount * 1.3 + avoidCount * 0.4, 8);
+}
+
+function getPenaltyScore(shop: CoffeeShop): number {
+  const explicitPenalties = shop.penaltySignals?.length ?? 0;
+  const avoidCount = shop.avoidNotes?.length ?? 0;
+  const genericMenuPenalty = !shop.tags.includes("pour-over") && !shop.tags.includes("roaster") ? 2.5 : 0;
+  const weakCoffeeFocusPenalty =
+    shop.espressoEvidence < 5.5 && shop.pourOverEvidence < 5.5 ? 3.5 : 0;
+  const genericSupportPenalty =
+    shop.sources.every((source) => source.category === "public-review") ? 2.8 : 0;
+
+  return explicitPenalties * 2.2 + avoidCount * 0.8 + genericMenuPenalty + weakCoffeeFocusPenalty + genericSupportPenalty;
+}
+
 export function getSupportLabels(shop: CoffeeShop): string[] {
   const labels = new Set<string>();
 
@@ -62,9 +81,11 @@ export function scoreShop(
   const credibility = shop.credibilitySignals * 1.6;
   const distance = getDistanceScore(distanceMiles);
   const publicRating = shop.publicRating * 0.9;
+  const coffeeFocusBonus = getCoffeeFocusBonus(shop);
+  const penaltyScore = getPenaltyScore(shop);
 
   const specialtyScore = Math.round(
-    sourceSupport + espresso + pourOver + roaster + credibility + distance + publicRating
+    sourceSupport + espresso + pourOver + roaster + credibility + distance + publicRating + coffeeFocusBonus - penaltyScore
   );
 
   return {

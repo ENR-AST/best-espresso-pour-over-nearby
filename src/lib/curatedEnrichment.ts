@@ -101,6 +101,7 @@ export function enrichCoffeeShopsWithCuratedSignals(shops: CoffeeShop[]): Coffee
     }));
     const signalNotes = matches.flatMap((record) => record.signalNotes ?? []);
     const avoidNotes = matches.flatMap((record) => record.avoidNotes ?? []);
+    const penaltySignals = matches.flatMap((record) => record.penaltySignals ?? []);
 
     return {
       ...shop,
@@ -113,6 +114,7 @@ export function enrichCoffeeShopsWithCuratedSignals(shops: CoffeeShop[]): Coffee
       whyRecommended: buildCuratedReason(shop.whyRecommended, matches),
       signalNotes: mergeNotes(shop.signalNotes, signalNotes),
       avoidNotes: mergeNotes(shop.avoidNotes, avoidNotes),
+      penaltySignals: mergeNotes(shop.penaltySignals, penaltySignals),
       externalLinks: [...shop.externalLinks, ...curatedLinks].filter(
         (link, index, all) => all.findIndex((candidate) => candidate.url === link.url) === index
       )

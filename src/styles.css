@@ -198,6 +198,14 @@ a { color: inherit; text-decoration: none; }
   border-radius: 999px;
   font-size: 0.76rem;
 }
+.coffee-first-badge {
+  padding: 0.38rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  background: rgba(164, 74, 43, 0.12);
+  color: var(--accent);
+  font-weight: 700;
+}
 .support-badge { background: rgba(96, 104, 72, 0.12); }
 .source-badge { background: rgba(47, 29, 20, 0.06); }
 .compact-support { align-items: center; }

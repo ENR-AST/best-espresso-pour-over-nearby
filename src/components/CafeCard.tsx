@@ -16,6 +16,7 @@ export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
     : shop.whyRecommended;
 
   const addressLine = buildAddress(shop);
+  const isCoffeeFirst = (shop.signalNotes?.length ?? 0) >= 2 && (shop.penaltySignals?.length ?? 0) === 0;
 
   return (
     <article className="cafe-card">
@@ -35,6 +36,9 @@ export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
       <p className="why-copy short">{shortWhy}</p>
 
       <div className="support-row compact-support">
+        {isCoffeeFirst ? (
+          <span className="coffee-first-badge">Coffee-first</span>
+        ) : null}
         {shop.supportLabels.slice(0, 1).map((label) => (
           <span key={label} className="support-badge">
             {label}

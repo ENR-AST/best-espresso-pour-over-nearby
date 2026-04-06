@@ -44,6 +44,16 @@ export function CafeDetailModal({ shop, onClose }: CafeDetailModalProps) {
                 </ul>
               </>
             ) : null}
+            {shop.penaltySignals && shop.penaltySignals.length > 0 ? (
+              <>
+                <h3>Generic-cafe warnings</h3>
+                <ul className="score-breakdown">
+                  {shop.penaltySignals.map((signal) => (
+                    <li key={signal}>{signal}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
           </section>
 
           <section>

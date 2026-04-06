@@ -35,6 +35,7 @@ export interface CuratedCafeRecord {
   credibilityBoost?: number;
   coffeeFocusBoost?: number;
   transparencyBoost?: number;
+  penaltySignals?: string[];
   signalNotes?: string[];
   avoidNotes?: string[];
 }
@@ -60,6 +61,7 @@ export interface CoffeeShop {
   externalLinks: { label: string; url: string }[];
   signalNotes?: string[];
   avoidNotes?: string[];
+  penaltySignals?: string[];
 }
 
 export interface SearchLocation {
