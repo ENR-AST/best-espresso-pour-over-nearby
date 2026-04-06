@@ -17,6 +17,7 @@ export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
 
   const addressLine = buildAddress(shop);
   const isCoffeeFirst = (shop.signalNotes?.length ?? 0) >= 2 && (shop.penaltySignals?.length ?? 0) === 0;
+  const coffeeFirstSummary = shop.signalNotes?.slice(0, 2).join(" · ");
 
   return (
     <article className="cafe-card">
@@ -34,6 +35,12 @@ export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
       </div>
 
       <p className="why-copy short">{shortWhy}</p>
+
+      {isCoffeeFirst && coffeeFirstSummary ? (
+        <p className="coffee-first-summary">
+          Why coffee-first: {coffeeFirstSummary}
+        </p>
+      ) : null}
 
       <div className="support-row compact-support">
         {isCoffeeFirst ? (

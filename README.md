@@ -37,6 +37,73 @@ Structured curated adapters included now:
 - `Daily Coffee News`
 - `European Coffee Trip`
 - `CoffeeGeek`
+- `Perfect Daily Grind`
+- `Home-Barista`
+- `Beanhunter`
+- `Beanconqueror`
+- `Roasters app`
+- `Baristapp`
+
+## Coffee-First Rules
+
+The app is intentionally biased toward serious coffee programs rather than generic cafe popularity.
+
+Signals the ranking now rewards:
+
+- single-origin pour-over options
+- roast date or origin transparency
+- traditional espresso drink language
+- real manual brew methods like `V60`, `Chemex`, or `Kalita`
+- flavor-note literacy
+- short coffee-focused menus
+
+Signals the ranking can penalize:
+
+- dark or bold roast language without specialty context
+- sugary or non-coffee-heavy menu language
+- generic small / medium / large sizing for espresso drinks
+- food or beverage programs that appear to dominate coffee craft
+
+## Supabase Migration Path
+
+When you are ready to stop hardcoding curated records, the clean migration path is:
+
+1. Create a `curated_sources` table
+2. Create a `curated_cafes` table
+3. Create a `curated_mentions` table
+4. Move each adapter record into rows
+5. Fetch curated evidence from Supabase instead of importing local arrays
+
+Suggested columns:
+
+`curated_sources`
+- `id`
+- `name`
+- `category`
+- `home_url`
+
+`curated_cafes`
+- `id`
+- `name`
+- `city`
+- `neighborhood`
+
+`curated_mentions`
+- `id`
+- `source_id`
+- `cafe_id`
+- `confidence`
+- `evidence_note`
+- `source_url`
+- `espresso_boost`
+- `pour_over_boost`
+- `roaster_boost`
+- `credibility_boost`
+- `coffee_focus_boost`
+- `transparency_boost`
+- `signal_notes` as text array / json
+- `avoid_notes` as text array / json
+- `penalty_signals` as text array / json
 
 ## Next Upgrade Options
 

@@ -1,10 +1,13 @@
 import type { CuratedCafeRecord } from "../types/coffee";
+import { baristappRecords } from "./curated/baristapp";
 import { beanhunterRecords } from "./curated/beanhunter";
+import { beanconquerorRecords } from "./curated/beanconqueror";
 import { coffeeGeekRecords } from "./curated/coffeeGeek";
 import { dailyCoffeeNewsRecords } from "./curated/dailyCoffeeNews";
 import { europeanCoffeeTripRecords } from "./curated/europeanCoffeeTrip";
 import { homeBaristaRecords } from "./curated/homeBarista";
 import { perfectDailyGrindRecords } from "./curated/perfectDailyGrind";
+import { roastersAppRecords } from "./curated/roastersApp";
 import { sprudgeRecords } from "./curated/sprudge";
 
 export const curatedCafeRecords: CuratedCafeRecord[] = [
@@ -14,5 +17,8 @@ export const curatedCafeRecords: CuratedCafeRecord[] = [
   ...coffeeGeekRecords,
   ...perfectDailyGrindRecords,
   ...homeBaristaRecords,
-  ...beanhunterRecords
+  ...beanhunterRecords,
+  ...beanconquerorRecords,
+  ...roastersAppRecords,
+  ...baristappRecords
 ];

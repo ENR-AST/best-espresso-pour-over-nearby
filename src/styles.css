@@ -211,6 +211,12 @@ a { color: inherit; text-decoration: none; }
 .compact-support { align-items: center; }
 .why-copy { margin: 0.85rem 0 0; }
 .why-copy.short { max-width: 58ch; }
+.coffee-first-summary {
+  margin: 0.55rem 0 0;
+  color: var(--olive);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
 .details-link {
   margin-top: 0.95rem;
   padding: 0.8rem 1rem;
