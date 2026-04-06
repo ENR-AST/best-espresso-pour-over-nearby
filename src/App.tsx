@@ -48,6 +48,16 @@ function App() {
   const [shops, setShops] = useState<CoffeeShop[]>(mockCoffeeShops);
   const [isLoading, setIsLoading] = useState(false);
   const autoLocateAttemptedRef = useRef(false);
+  const requestSequenceRef = useRef(0);
+
+  function beginLocationRequest() {
+    requestSequenceRef.current += 1;
+    return requestSequenceRef.current;
+  }
+
+  function isLatestLocationRequest(requestId: number) {
+    return requestSequenceRef.current === requestId;
+  }
 
   const rankedShops = useMemo(() => {
     return rankCoffeeShops(shops, resultsLocation, activeFilters);
@@ -67,15 +77,20 @@ function App() {
   }, []);
 
   const handleUseMyLocation = useCallback(async () => {
+    const requestId = beginLocationRequest();
     setIsLoading(true);
 
     if (!window.isSecureContext) {
-      resetToDefault("Geolocation needs a secure page. Run the app from localhost with npm run dev, not from a file.");
+      if (isLatestLocationRequest(requestId)) {
+        resetToDefault("Geolocation needs a secure page. Run the app from localhost with npm run dev, not from a file.");
+      }
       return;
     }
 
     if (!navigator.geolocation) {
-      resetToDefault("Geolocation is not supported in this browser.");
+      if (isLatestLocationRequest(requestId)) {
+        resetToDefault("Geolocation is not supported in this browser.");
+      }
       return;
     }
 
@@ -83,7 +98,9 @@ function App() {
       try {
         const permission = await navigator.permissions.query({ name: "geolocation" });
         if (permission.state === "denied") {
-          resetToDefault("Location permission is blocked in your browser. Allow location for localhost and try again.");
+          if (isLatestLocationRequest(requestId)) {
+            resetToDefault("Location permission is blocked in your browser. Allow location for localhost and try again.");
+          }
           return;
         }
       } catch {
@@ -95,6 +112,8 @@ function App() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        if (!isLatestLocationRequest(requestId)) return;
+
         const userLocation: SearchLocation = {
           label: "Your current location",
           latitude: position.coords.latitude,
@@ -113,6 +132,7 @@ function App() {
         void (async () => {
           try {
             const liveShops = await fetchNearbyCoffeeShops(userLocation);
+            if (!isLatestLocationRequest(requestId)) return;
             const enrichedLiveShops = enrichShopsForDisplay(liveShops);
 
             if (enrichedLiveShops.length > 0) {
@@ -123,37 +143,49 @@ function App() {
               return;
             }
 
+            if (!isLatestLocationRequest(requestId)) return;
             setResultsLocation(nearestPrototype);
             setShops(mockCoffeeShops);
             setResultsStatus("fallback");
             setGeoStatus(`Your real location was detected, but live nearby lookup returned no cafes. Showing prototype data centered near ${nearestPrototype.label} instead.`);
           } catch (error) {
+            if (!isLatestLocationRequest(requestId)) return;
             setResultsLocation(nearestPrototype);
             setShops(mockCoffeeShops);
             setResultsStatus("fallback");
             setGeoStatus(`Your real location was detected, but nearby coffee lookup failed. Showing prototype recommendations centered near ${nearestPrototype.label} instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
           } finally {
-            setIsLoading(false);
+            if (isLatestLocationRequest(requestId)) {
+              setIsLoading(false);
+            }
           }
         })();
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
-          resetToDefault("Location blocked by the browser. Showing default recommendations instead.");
+          if (isLatestLocationRequest(requestId)) {
+            resetToDefault("Location blocked by the browser. Showing default recommendations instead.");
+          }
           return;
         }
 
         if (error.code === error.POSITION_UNAVAILABLE) {
-          resetToDefault("Your browser could not determine a location. Showing default recommendations instead.");
+          if (isLatestLocationRequest(requestId)) {
+            resetToDefault("Your browser could not determine a location. Showing default recommendations instead.");
+          }
           return;
         }
 
         if (error.code === error.TIMEOUT) {
-          resetToDefault("Location timed out. Showing default recommendations instead.");
+          if (isLatestLocationRequest(requestId)) {
+            resetToDefault("Location timed out. Showing default recommendations instead.");
+          }
           return;
         }
 
-        resetToDefault(`Could not read your location. Showing default recommendations instead. ${error.message}`);
+        if (isLatestLocationRequest(requestId)) {
+          resetToDefault(`Could not read your location. Showing default recommendations instead. ${error.message}`);
+        }
       },
       {
         enableHighAccuracy: true,
@@ -170,9 +202,12 @@ function App() {
   }, [handleUseMyLocation]);
 
   async function handleSearch() {
+    const requestId = beginLocationRequest();
     const query = normalizeQuery(locationInput);
     if (!query) {
-      setGeoStatus(searchMode === "zip" ? "Enter a 5-digit ZIP code to search." : "Enter a city or neighborhood to search.");
+      if (isLatestLocationRequest(requestId)) {
+        setGeoStatus(searchMode === "zip" ? "Enter a 5-digit ZIP code to search." : "Enter a city or neighborhood to search.");
+      }
       return;
     }
 
@@ -183,10 +218,12 @@ function App() {
 
       if (liveLocation) {
         const liveShops = await fetchNearbyCoffeeShops(liveLocation);
+        if (!isLatestLocationRequest(requestId)) return;
         const enrichedLiveShops = enrichShopsForDisplay(liveShops);
         setLocation(liveLocation);
 
         if (enrichedLiveShops.length > 0) {
+          if (!isLatestLocationRequest(requestId)) return;
           setResultsLocation(liveLocation);
           setShops(enrichedLiveShops);
           setResultsStatus("live");
@@ -195,6 +232,7 @@ function App() {
           return;
         }
 
+        if (!isLatestLocationRequest(requestId)) return;
         setResultsLocation(liveLocation);
         setShops(mockCoffeeShops);
         setResultsStatus("fallback");
@@ -206,6 +244,7 @@ function App() {
       if (searchMode === "city") {
         const matchedLocation = findMockLocation(query.toLowerCase());
         if (matchedLocation) {
+          if (!isLatestLocationRequest(requestId)) return;
           setLocation(matchedLocation);
           setResultsLocation(matchedLocation);
           setShops(mockCoffeeShops);
@@ -216,11 +255,15 @@ function App() {
         }
       }
 
-      resetToDefault(error instanceof Error ? error.message : "Search failed. Reset to default recommendations.");
+      if (isLatestLocationRequest(requestId)) {
+        resetToDefault(error instanceof Error ? error.message : "Search failed. Reset to default recommendations.");
+      }
       return;
     }
 
-    resetToDefault("Could not find that location yet. Showing default recommendations instead.");
+    if (isLatestLocationRequest(requestId)) {
+      resetToDefault("Could not find that location yet. Showing default recommendations instead.");
+    }
   }
 
   function handleToggleFilter(filter: FilterKey) {
