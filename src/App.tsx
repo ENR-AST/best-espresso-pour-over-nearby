@@ -213,33 +213,10 @@ function App() {
 
     setIsLoading(true);
 
+    let liveLocation: SearchLocation | null = null;
+
     try {
-      const liveLocation = await geocodeLocation(query, searchMode);
-
-      if (liveLocation) {
-        const liveShops = await fetchNearbyCoffeeShops(liveLocation);
-        if (!isLatestLocationRequest(requestId)) return;
-        const enrichedLiveShops = enrichShopsForDisplay(liveShops);
-        setLocation(liveLocation);
-
-        if (enrichedLiveShops.length > 0) {
-          if (!isLatestLocationRequest(requestId)) return;
-          setResultsLocation(liveLocation);
-          setShops(enrichedLiveShops);
-          setResultsStatus("live");
-          setGeoStatus(`Search applied: ${liveLocation.label}. Found ${enrichedLiveShops.length} nearby coffee places.`);
-          setIsLoading(false);
-          return;
-        }
-
-        if (!isLatestLocationRequest(requestId)) return;
-        setResultsLocation(liveLocation);
-        setShops(mockCoffeeShops);
-        setResultsStatus("fallback");
-        setGeoStatus(`Found ${liveLocation.label}, but no live nearby cafes were returned. Showing prototype data instead.`);
-        setIsLoading(false);
-        return;
-      }
+      liveLocation = await geocodeLocation(query, searchMode);
     } catch (error) {
       if (searchMode === "city") {
         const matchedLocation = findMockLocation(query.toLowerCase());
@@ -256,8 +233,53 @@ function App() {
       }
 
       if (isLatestLocationRequest(requestId)) {
-        resetToDefault(error instanceof Error ? error.message : "Search failed. Reset to default recommendations.");
+        setGeoStatus(error instanceof Error ? error.message : "Search failed.");
+        setIsLoading(false);
       }
+      return;
+    }
+
+    if (!liveLocation) {
+      if (isLatestLocationRequest(requestId)) {
+        setGeoStatus("Could not find that location. Try a city, neighborhood, or 5-digit ZIP code.");
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    const nearestPrototype = getNearestPrototypeMarket(liveLocation.latitude, liveLocation.longitude);
+
+    try {
+      const liveShops = await fetchNearbyCoffeeShops(liveLocation);
+      if (!isLatestLocationRequest(requestId)) return;
+      const enrichedLiveShops = enrichShopsForDisplay(liveShops);
+      setLocation(liveLocation);
+
+      if (enrichedLiveShops.length > 0) {
+        setResultsLocation(liveLocation);
+        setShops(enrichedLiveShops);
+        setResultsStatus("live");
+        setGeoStatus(`Search applied: ${liveLocation.label}. Found ${enrichedLiveShops.length} nearby coffee places.`);
+        setIsLoading(false);
+        return;
+      }
+
+      setLocation(liveLocation);
+      setResultsLocation(nearestPrototype);
+      setShops(mockCoffeeShops);
+      setResultsStatus("fallback");
+      setGeoStatus(`Found ${liveLocation.label}, but live nearby cafes were unavailable. Showing fallback recommendations centered near ${nearestPrototype.label}.`);
+      setIsLoading(false);
+      return;
+    } catch (error) {
+      if (!isLatestLocationRequest(requestId)) return;
+
+      setLocation(liveLocation);
+      setResultsLocation(nearestPrototype);
+      setShops(mockCoffeeShops);
+      setResultsStatus("fallback");
+      setGeoStatus(`Found ${liveLocation.label}, but nearby lookup failed. Showing fallback recommendations centered near ${nearestPrototype.label} instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
+      setIsLoading(false);
       return;
     }
 
