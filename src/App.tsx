@@ -8,10 +8,11 @@ import waliEspressoLogo from "./assets/wali-espresso.png";
 import { defaultLocation, findMockLocation, mockLocationEntries } from "./data/mockLocations";
 import { mockCoffeeShops } from "./data/mockCoffeeShops";
 import { enrichCoffeeShopsWithCuratedSignals } from "./lib/curatedEnrichment";
+import { loadCuratedCafeRecords } from "./lib/curatedSourceStore";
 import { getDistanceMiles } from "./lib/geo";
 import { fetchNearbyCoffeeShops, geocodeLocation } from "./lib/liveCoffee";
 import { rankCoffeeShops } from "./lib/scoring";
-import type { CoffeeShop, FilterKey, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
+import type { CoffeeShop, CuratedCafeRecord, FilterKey, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
 
 function normalizeQuery(value: string): string {
   return value.trim();
@@ -32,8 +33,8 @@ function getNearestPrototypeMarket(latitude: number, longitude: number): SearchL
   };
 }
 
-function enrichShopsForDisplay(shops: CoffeeShop[]): CoffeeShop[] {
-  return enrichCoffeeShopsWithCuratedSignals(shops);
+function enrichShopsForDisplay(shops: CoffeeShop[], curatedRecords: CuratedCafeRecord[]): CoffeeShop[] {
+  return enrichCoffeeShopsWithCuratedSignals(shops, curatedRecords);
 }
 
 function App() {
@@ -46,6 +47,9 @@ function App() {
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
   const [selectedShop, setSelectedShop] = useState<RankedCoffeeShop | null>(null);
   const [shops, setShops] = useState<CoffeeShop[]>(mockCoffeeShops);
+  const [curatedRecords, setCuratedRecords] = useState<CuratedCafeRecord[]>([]);
+  const [curatedRecordsMode, setCuratedRecordsMode] = useState<"supabase" | "local">("local");
+  const [curatedRecordsNote, setCuratedRecordsNote] = useState("Using bundled curated source records while the app loads.");
   const [isLoading, setIsLoading] = useState(false);
   const autoLocateAttemptedRef = useRef(false);
   const requestSequenceRef = useRef(0);
@@ -59,9 +63,13 @@ function App() {
     return requestSequenceRef.current === requestId;
   }
 
+  const displayShops = useMemo(() => {
+    return enrichShopsForDisplay(shops, curatedRecords);
+  }, [shops, curatedRecords]);
+
   const rankedShops = useMemo(() => {
-    return rankCoffeeShops(shops, resultsLocation, activeFilters);
-  }, [shops, resultsLocation, activeFilters]);
+    return rankCoffeeShops(displayShops, resultsLocation, activeFilters);
+  }, [displayShops, resultsLocation, activeFilters]);
 
   const topPick = rankedShops[0];
 
@@ -133,13 +141,12 @@ function App() {
           try {
             const liveShops = await fetchNearbyCoffeeShops(userLocation);
             if (!isLatestLocationRequest(requestId)) return;
-            const enrichedLiveShops = enrichShopsForDisplay(liveShops);
 
-            if (enrichedLiveShops.length > 0) {
+            if (liveShops.length > 0) {
               setResultsLocation(userLocation);
-              setShops(enrichedLiveShops);
+              setShops(liveShops);
               setResultsStatus("live");
-              setGeoStatus(`Using your real location and found ${enrichedLiveShops.length} nearby coffee places.`);
+              setGeoStatus(`Using your real location and found ${liveShops.length} nearby coffee places.`);
               return;
             }
 
@@ -194,6 +201,15 @@ function App() {
       }
     );
   }, [resetToDefault]);
+
+  useEffect(() => {
+    void (async () => {
+      const curatedSourceResult = await loadCuratedCafeRecords();
+      setCuratedRecords(curatedSourceResult.records);
+      setCuratedRecordsMode(curatedSourceResult.mode);
+      setCuratedRecordsNote(curatedSourceResult.note);
+    })();
+  }, []);
 
   useEffect(() => {
     if (autoLocateAttemptedRef.current) return;
@@ -252,14 +268,13 @@ function App() {
     try {
       const liveShops = await fetchNearbyCoffeeShops(liveLocation);
       if (!isLatestLocationRequest(requestId)) return;
-      const enrichedLiveShops = enrichShopsForDisplay(liveShops);
       setLocation(liveLocation);
 
-      if (enrichedLiveShops.length > 0) {
+      if (liveShops.length > 0) {
         setResultsLocation(liveLocation);
-        setShops(enrichedLiveShops);
+        setShops(liveShops);
         setResultsStatus("live");
-        setGeoStatus(`Search applied: ${liveLocation.label}. Found ${enrichedLiveShops.length} nearby coffee places.`);
+        setGeoStatus(`Search applied: ${liveLocation.label}. Found ${liveShops.length} nearby coffee places.`);
         setIsLoading(false);
         return;
       }
@@ -392,6 +407,8 @@ function App() {
           <article>
             <h3>Curated specialty enrichment</h3>
             <p>Live places are matched against known specialty cafes in the curated dataset to inherit stronger editorial and enthusiast signals.</p>
+            <p>{curatedRecordsMode === "supabase" ? "Curated source mode: Supabase." : "Curated source mode: bundled fallback."}</p>
+            <p>{curatedRecordsNote}</p>
           </article>
         </div>
       </section>

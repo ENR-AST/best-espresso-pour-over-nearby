@@ -28,6 +28,31 @@ The current app is ready for static deployment.
 - The app now tries automatic geolocation on first load
 - If live lookup fails, the UI clearly marks results as `Fallback results`
 - Static hosting is enough for this version because live lookup happens in the browser
+- Curated records now support `Supabase` with bundled-file fallback
+
+## Supabase Setup
+
+The app can now load curated records from Supabase when these env vars are present:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Files added for this:
+
+- `.env.example`
+- `supabase/schema.sql`
+- `src/lib/supabaseClient.ts`
+- `src/lib/curatedSourceStore.ts`
+
+Suggested setup:
+
+1. Create a Supabase project
+2. Run the SQL in `supabase/schema.sql`
+3. Copy `.env.example` to `.env`
+4. Fill in your Supabase URL and anon key
+5. Restart the dev server
+
+If Supabase is not configured, the app still works using the bundled curated records in `src/data/curated`
 
 ## Current Source Set
 

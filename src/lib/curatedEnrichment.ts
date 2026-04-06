@@ -70,18 +70,21 @@ function buildCuratedReason(current: string, records: CuratedCafeRecord[]): stri
   return `${current} Curated specialty evidence also matched this cafe through ${sourceNames}.${signalSentence}`;
 }
 
-function getMatchingRecords(shop: CoffeeShop): CuratedCafeRecord[] {
+function getMatchingRecords(shop: CoffeeShop, records: CuratedCafeRecord[]): CuratedCafeRecord[] {
   const normalizedShopName = normalizeName(shop.name);
 
-  return curatedCafeRecords.filter((record) => {
+  return records.filter((record) => {
     const score = similarityScore(normalizedShopName, normalizeName(record.cafeName));
     return score >= 0.55;
   });
 }
 
-export function enrichCoffeeShopsWithCuratedSignals(shops: CoffeeShop[]): CoffeeShop[] {
+export function enrichCoffeeShopsWithCuratedSignals(
+  shops: CoffeeShop[],
+  records: CuratedCafeRecord[] = curatedCafeRecords
+): CoffeeShop[] {
   return shops.map((shop) => {
-    const matches = getMatchingRecords(shop);
+    const matches = getMatchingRecords(shop, records);
 
     if (matches.length === 0) {
       return shop;
