@@ -43,6 +43,10 @@ function mergeTags(current: Tag[], incoming: Tag[]): Tag[] {
   return Array.from(new Set<Tag>([...current, ...incoming]));
 }
 
+function mergeNotes(current: string[] | undefined, incoming: string[]): string[] {
+  return Array.from(new Set([...(current ?? []), ...incoming]));
+}
+
 function toSourceEvidence(record: CuratedCafeRecord): SourceEvidence {
   return {
     source: record.sourceName,
@@ -55,7 +59,15 @@ function toSourceEvidence(record: CuratedCafeRecord): SourceEvidence {
 
 function buildCuratedReason(current: string, records: CuratedCafeRecord[]): string {
   const sourceNames = Array.from(new Set(records.map((record) => record.sourceName))).join(", ");
-  return `${current} Curated specialty evidence also matched this cafe through ${sourceNames}.`;
+  const signalNotes = Array.from(
+    new Set(records.flatMap((record) => record.signalNotes ?? []))
+  ).slice(0, 2);
+  const signalSentence =
+    signalNotes.length > 0
+      ? ` Coffee-first signals include ${signalNotes.join(" and ")}.`
+      : "";
+
+  return `${current} Curated specialty evidence also matched this cafe through ${sourceNames}.${signalSentence}`;
 }
 
 function getMatchingRecords(shop: CoffeeShop): CuratedCafeRecord[] {
@@ -81,10 +93,14 @@ export function enrichCoffeeShopsWithCuratedSignals(shops: CoffeeShop[]): Coffee
     const pourOverBoost = Math.max(...matches.map((record) => record.pourOverBoost ?? 0), 0);
     const roasterBoost = Math.max(...matches.map((record) => record.roasterBoost ?? 0), 0);
     const credibilityBoost = Math.max(...matches.map((record) => record.credibilityBoost ?? 0), 0);
+    const coffeeFocusBoost = Math.max(...matches.map((record) => record.coffeeFocusBoost ?? 0), 0);
+    const transparencyBoost = Math.max(...matches.map((record) => record.transparencyBoost ?? 0), 0);
     const curatedLinks = matches.map((record) => ({
       label: record.sourceName,
       url: record.sourceUrl
     }));
+    const signalNotes = matches.flatMap((record) => record.signalNotes ?? []);
+    const avoidNotes = matches.flatMap((record) => record.avoidNotes ?? []);
 
     return {
       ...shop,
@@ -92,9 +108,11 @@ export function enrichCoffeeShopsWithCuratedSignals(shops: CoffeeShop[]): Coffee
       espressoEvidence: Math.min(10, shop.espressoEvidence + espressoBoost),
       pourOverEvidence: Math.min(10, shop.pourOverEvidence + pourOverBoost),
       roasterProgram: Math.min(10, shop.roasterProgram + roasterBoost),
-      credibilitySignals: Math.min(10, shop.credibilitySignals + credibilityBoost),
+      credibilitySignals: Math.min(10, shop.credibilitySignals + credibilityBoost + coffeeFocusBoost + transparencyBoost),
       sources: mergeSources(shop.sources, sourceEvidence),
       whyRecommended: buildCuratedReason(shop.whyRecommended, matches),
+      signalNotes: mergeNotes(shop.signalNotes, signalNotes),
+      avoidNotes: mergeNotes(shop.avoidNotes, avoidNotes),
       externalLinks: [...shop.externalLinks, ...curatedLinks].filter(
         (link, index, all) => all.findIndex((candidate) => candidate.url === link.url) === index
       )

@@ -13,7 +13,12 @@ export const sprudgeRecords: CuratedCafeRecord[] = [
     evidenceNote: "Editorial recognition for dependable espresso and long-running specialty credibility.",
     sourceUrl: "https://sprudge.com",
     espressoBoost: 1.2,
-    credibilityBoost: 1.1
+    credibilityBoost: 1.1,
+    coffeeFocusBoost: 0.9,
+    signalNotes: [
+      "traditional cortado and macchiato-style espresso service",
+      "a focused coffee-first menu"
+    ]
   },
   {
     sourceId: "sprudge",
@@ -28,7 +33,13 @@ export const sprudgeRecords: CuratedCafeRecord[] = [
     sourceUrl: "https://sprudge.com",
     pourOverBoost: 1.1,
     roasterBoost: 1.2,
-    credibilityBoost: 1
+    credibilityBoost: 1,
+    coffeeFocusBoost: 0.8,
+    transparencyBoost: 0.7,
+    signalNotes: [
+      "single-origin options offered as distinct pour-overs",
+      "flavor notes and origin detail presented clearly"
+    ]
   },
   {
     sourceId: "sprudge",
@@ -44,7 +55,13 @@ export const sprudgeRecords: CuratedCafeRecord[] = [
     espressoBoost: 1.1,
     pourOverBoost: 1.2,
     roasterBoost: 1.3,
-    credibilityBoost: 1.2
+    credibilityBoost: 1.2,
+    coffeeFocusBoost: 0.9,
+    transparencyBoost: 0.8,
+    signalNotes: [
+      "manual brew options treated as true handcrafted coffee",
+      "origin-driven coffee menu with flavor-note literacy"
+    ]
   },
   {
     sourceId: "sprudge",
@@ -58,6 +75,12 @@ export const sprudgeRecords: CuratedCafeRecord[] = [
     evidenceNote: "Repeated specialty coverage supporting roaster status and serious coffee program depth.",
     sourceUrl: "https://sprudge.com",
     roasterBoost: 1.3,
-    credibilityBoost: 1.1
+    credibilityBoost: 1.1,
+    coffeeFocusBoost: 0.8,
+    transparencyBoost: 0.7,
+    signalNotes: [
+      "roaster-backed menu built around coffee rather than novelty drinks",
+      "transparent bean and origin storytelling"
+    ]
   }
 ];

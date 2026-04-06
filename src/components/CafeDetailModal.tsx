@@ -34,6 +34,16 @@ export function CafeDetailModal({ shop, onClose }: CafeDetailModalProps) {
               <li>Roaster program: {shop.roasterProgram}/10</li>
               <li>Credibility signals: {shop.credibilitySignals}/10</li>
             </ul>
+            {shop.signalNotes && shop.signalNotes.length > 0 ? (
+              <>
+                <h3>Coffee-first signals</h3>
+                <ul className="score-breakdown">
+                  {shop.signalNotes.map((signal) => (
+                    <li key={signal}>{signal}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
           </section>
 
           <section>
