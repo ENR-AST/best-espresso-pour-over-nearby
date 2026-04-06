@@ -33,6 +33,7 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter"
 ];
+const DEFAULT_SEARCH_RADIUS_METERS = 24140;
 
 function safeNumber(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
@@ -177,7 +178,7 @@ async function fetchOverpass(endpoint: string, body: string): Promise<{ elements
   return (await response.json()) as { elements?: OverpassElement[] };
 }
 
-export async function fetchNearbyCoffeeShops(location: SearchLocation, radiusMeters = 2500): Promise<CoffeeShop[]> {
+export async function fetchNearbyCoffeeShops(location: SearchLocation, radiusMeters = DEFAULT_SEARCH_RADIUS_METERS): Promise<CoffeeShop[]> {
   const query = `
 [out:json][timeout:20];
 (
