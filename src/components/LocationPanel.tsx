@@ -61,32 +61,45 @@ export function LocationPanel({
       </div>
 
       <div className="search-shell">
-        <div className="mode-grid">
-          <button className="action-button primary" onClick={onUseMyLocation} disabled={isLoading}>
-            {isLoading ? "Finding coffee..." : "Use my location"}
-          </button>
-          <button className={searchMode === "city" ? "action-button active" : "action-button"} onClick={() => onSelectMode("city")} type="button">
-            City name
-          </button>
-          <button className={searchMode === "zip" ? "action-button active" : "action-button"} onClick={() => onSelectMode("zip")} type="button">
-            Zip code
-          </button>
+        <div className="mode-select-row">
+          <div className="mode-select-block">
+            <span className="status-label">Search by</span>
+            <select
+              className="mode-select"
+              value={searchMode}
+              onChange={(event) => onSelectMode(event.target.value as SearchMode)}
+            >
+              <option value="current">My current location</option>
+              <option value="city">City name</option>
+              <option value="zip">Zip code</option>
+            </select>
+          </div>
+
           <button className="action-button reset" onClick={onReset} type="button">
             Reset
           </button>
         </div>
 
-        <div className="manual-search">
-          <input
-            aria-label={placeholder}
-            value={locationInput}
-            onChange={(event) => onInputChange(event.target.value)}
-            placeholder={placeholder}
-          />
-          <button className="cta-secondary" onClick={onSearch} disabled={isLoading}>
-            {isLoading ? "Searching..." : "Search"}
-          </button>
-        </div>
+        {searchMode === "current" ? (
+          <div className="current-location-panel">
+            <p className="current-location-copy">The app uses your current location automatically. You can refresh it any time below.</p>
+            <button className="action-button primary wide" onClick={onUseMyLocation} disabled={isLoading}>
+              {isLoading ? "Finding coffee..." : "Refresh my location"}
+            </button>
+          </div>
+        ) : (
+          <div className="manual-search">
+            <input
+              aria-label={placeholder}
+              value={locationInput}
+              onChange={(event) => onInputChange(event.target.value)}
+              placeholder={placeholder}
+            />
+            <button className="cta-secondary" onClick={onSearch} disabled={isLoading}>
+              {isLoading ? "Searching..." : "Search"}
+            </button>
+          </div>
+        )}
 
         <div className="status-grid">
           <div>

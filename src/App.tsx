@@ -40,7 +40,7 @@ function App() {
   const [location, setLocation] = useState<SearchLocation>(defaultLocation);
   const [resultsLocation, setResultsLocation] = useState<SearchLocation>(defaultLocation);
   const [locationInput, setLocationInput] = useState("");
-  const [searchMode, setSearchMode] = useState<SearchMode>("city");
+  const [searchMode, setSearchMode] = useState<SearchMode>("current");
   const [geoStatus, setGeoStatus] = useState("Trying to detect your location automatically...");
   const [resultsStatus, setResultsStatus] = useState<"live" | "fallback">("fallback");
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
@@ -59,6 +59,7 @@ function App() {
     setLocation(defaultLocation);
     setResultsLocation(defaultLocation);
     setLocationInput("");
+    setSearchMode("current");
     setShops(mockCoffeeShops);
     setResultsStatus("fallback");
     setGeoStatus(status);
@@ -163,10 +164,7 @@ function App() {
   }, [resetToDefault]);
 
   useEffect(() => {
-    if (autoLocateAttemptedRef.current) {
-      return;
-    }
-
+    if (autoLocateAttemptedRef.current) return;
     autoLocateAttemptedRef.current = true;
     void handleUseMyLocation();
   }, [handleUseMyLocation]);
@@ -235,6 +233,19 @@ function App() {
 
   function handleReset() {
     resetToDefault();
+    void handleUseMyLocation();
+  }
+
+  function handleSelectMode(mode: SearchMode) {
+    setSearchMode(mode);
+    setLocationInput("");
+
+    if (mode === "current") {
+      void handleUseMyLocation();
+      return;
+    }
+
+    setGeoStatus(mode === "zip" ? "ZIP code mode selected. Enter a 5-digit ZIP code." : "City mode selected. Enter a city or neighborhood.");
   }
 
   return (
@@ -247,7 +258,7 @@ function App() {
           onSearch={handleSearch}
           onUseMyLocation={handleUseMyLocation}
           onReset={handleReset}
-          onSelectMode={setSearchMode}
+          onSelectMode={handleSelectMode}
           searchMode={searchMode}
           geoStatus={geoStatus}
           logoSrc={waliEspressoLogo}
@@ -306,12 +317,12 @@ function App() {
         </div>
         <div className="architecture-grid">
           <article>
-            <h3>Automatic location</h3>
-            <p>The app now tries to detect the user location automatically on first load, then falls back safely if permission or live lookup fails.</p>
+            <h3>Simpler interface</h3>
+            <p>The app now uses one dropdown for location mode, with current location as the default and a dedicated reset action.</p>
           </article>
           <article>
-            <h3>Deployment ready</h3>
-            <p>The app is ready for static deployment with Vite on Vercel or Cloudflare Pages once you push it to GitHub.</p>
+            <h3>Real map</h3>
+            <p>Leaflet plots the actual result area so the map matches the cafes you are seeing.</p>
           </article>
           <article>
             <h3>Curated specialty enrichment</h3>

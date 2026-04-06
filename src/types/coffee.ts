@@ -8,7 +8,7 @@ export type Tag = "espresso" | "pour-over" | "roaster" | "specialty";
 
 export type FilterKey = "open-now" | "walkable";
 
-export type SearchMode = "city" | "zip";
+export type SearchMode = "current" | "city" | "zip";
 
 export interface SourceEvidence {
   source: string;
