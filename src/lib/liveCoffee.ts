@@ -58,6 +58,69 @@ function inferTags(tags: Record<string, string>): Tag[] {
   return Array.from(result);
 }
 
+function buildTextBlob(tags: Record<string, string>): string {
+  return Object.values(tags).join(" ").toLowerCase();
+}
+
+function inferSignalNotes(textBlob: string): string[] {
+  const notes: string[] = [];
+
+  if (/(single origin|single-origin|ethiopian|ethiopia|colombia|colombian|guatemala|guatemalan|kenya|panama|washed|natural)/i.test(textBlob)) {
+    notes.push("single-origin coffee and traceable sourcing are visible");
+  }
+
+  if (/(pour over|pour-over|v60|chemex|kalita|brew bar|filter coffee)/i.test(textBlob)) {
+    notes.push("manual brew is offered as a real handcrafted coffee option");
+  }
+
+  if (/(cortado|macchiato|flat white)/i.test(textBlob)) {
+    notes.push("traditional espresso drinks suggest ratio-based preparation");
+  }
+
+  if (/(roast date|fresh crop|origin|producer|farm)/i.test(textBlob)) {
+    notes.push("origin and freshness details suggest stronger transparency");
+  }
+
+  if (/(fruity|chocolaty|chocolatey|floral|citrus|berry|stone fruit|caramel notes|tasting notes)/i.test(textBlob)) {
+    notes.push("flavor-note language suggests coffee knowledge at the bar");
+  }
+
+  return notes;
+}
+
+function inferPenaltySignals(textBlob: string): string[] {
+  const penalties: string[] = [];
+
+  if (/(dark roast|bold roast|extra bold|french roast)/i.test(textBlob)) {
+    penalties.push("dark-roast or bold-roast language can hide bean quality");
+  }
+
+  if (/(vanilla|hazelnut|caramel|pumpkin spice|frappe|frappuccino|smoothie|milkshake|boba|bubble tea|energy drink|monster|red bull)/i.test(textBlob)) {
+    penalties.push("sweet or non-coffee drinks appear to dominate the menu");
+  }
+
+  if (/(small|medium|large)/i.test(textBlob) && /(latte|cappuccino|macchiato|cortado|flat white|espresso)/i.test(textBlob)) {
+    penalties.push("generic cup sizing appears to override espresso drink ratios");
+  }
+
+  if (/(breakfast|brunch|sandwich|burger|pizza|salad|cocktail|wine|beer)/i.test(textBlob) && !/(espresso|pour over|single origin|roaster|brew bar)/i.test(textBlob)) {
+    penalties.push("food or non-coffee service appears more prominent than coffee craft");
+  }
+
+  return penalties;
+}
+
+function getCoffeeEvidenceAdjustments(signalNotes: string[], penaltySignals: string[]) {
+  const positive = signalNotes.length;
+  const negative = penaltySignals.length;
+
+  return {
+    espresso: positive * 0.45 - negative * 0.5,
+    pourOver: positive * 0.55 - negative * 0.55,
+    credibility: positive * 0.4 - negative * 0.5
+  };
+}
+
 function toCoffeeShop(element: OverpassElement, location: SearchLocation): CoffeeShop | null {
   const tags = element.tags ?? {};
   const name = normalizeText(tags.name);
@@ -69,8 +132,11 @@ function toCoffeeShop(element: OverpassElement, location: SearchLocation): Coffe
   const inferredTags = inferTags(tags);
   const isRoaster = inferredTags.includes("roaster");
   const hasWebsite = Boolean(tags.website || tags["contact:website"]);
-  const textBlob = Object.values(tags).join(" ");
+  const textBlob = buildTextBlob(tags);
   const hasSpecialtyWords = /specialty|single origin|third wave|espresso|filter|pour over|pour-over|roaster/i.test(textBlob);
+  const signalNotes = inferSignalNotes(textBlob);
+  const penaltySignals = inferPenaltySignals(textBlob);
+  const adjustments = getCoffeeEvidenceAdjustments(signalNotes, penaltySignals);
 
   return {
     id: `live-${element.type}-${element.id}`,
@@ -83,10 +149,10 @@ function toCoffeeShop(element: OverpassElement, location: SearchLocation): Coffe
     openNow: true,
     tags: inferredTags,
     distanceHintMiles: 0,
-    espressoEvidence: hasSpecialtyWords ? 6.2 : 4.5,
-    pourOverEvidence: hasSpecialtyWords ? 5.8 : 3.8,
+    espressoEvidence: Math.max(2.5, Math.min(10, (hasSpecialtyWords ? 6.2 : 4.5) + adjustments.espresso)),
+    pourOverEvidence: Math.max(2.2, Math.min(10, (hasSpecialtyWords ? 5.8 : 3.8) + adjustments.pourOver)),
     roasterProgram: isRoaster ? 8.4 : 3.5,
-    credibilitySignals: hasWebsite ? 5.6 : 4.2,
+    credibilitySignals: Math.max(2.5, Math.min(10, (hasWebsite ? 5.6 : 4.2) + adjustments.credibility)),
     publicRating: 3.8,
     sources: [
       {
@@ -100,6 +166,9 @@ function toCoffeeShop(element: OverpassElement, location: SearchLocation): Coffe
     whyRecommended: isRoaster
       ? "Nearby live result with roastery signals. Specialty ranking is provisional until curated coffee sources are connected."
       : "Nearby live coffee result. Specialty ranking is provisional until curated coffee sources are connected.",
+    signalNotes,
+    penaltySignals,
+    avoidNotes: penaltySignals.length > 0 ? ["available metadata suggests this may be less coffee-focused than the strongest specialty picks"] : [],
     externalLinks: [
       ...(tags.website || tags["contact:website"] ? [{ label: "Website", url: tags.website ?? tags["contact:website"] ?? "" }] : []),
       { label: "OpenStreetMap", url: `https://www.openstreetmap.org/${element.type}/${element.id}` }
