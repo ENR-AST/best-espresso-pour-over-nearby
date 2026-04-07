@@ -52,7 +52,9 @@ function slugify(value: string): string {
 
 export async function sendAdminMagicLink(email: string): Promise<void> {
   const supabase = requireSupabase();
-  const redirectTo = typeof window !== "undefined" ? window.location.href.split("#")[0] : undefined;
+  const redirectTo =
+    import.meta.env.VITE_ADMIN_REDIRECT_URL ||
+    (typeof window !== "undefined" ? window.location.origin : undefined);
 
   const { error } = await supabase.auth.signInWithOtp({
     email,

@@ -63,12 +63,15 @@ You can now protect the in-app editor with a real Supabase email sign-in flow.
 Set:
 
 - `VITE_ADMIN_EMAIL_ALLOWLIST=enriqueasturizaga@gmail.com`
+- `VITE_ADMIN_REDIRECT_URL=https://best-espresso-pour-over-nearby.vercel.app`
 
 Then the app will:
 
 1. send a magic link to that email
 2. accept the Supabase session in the browser
 3. unlock the admin panel only for allowlisted emails
+
+If you request the magic link from a local dev session, set `VITE_ADMIN_REDIRECT_URL` so the email always returns to your live Vercel site instead of `localhost`.
 
 If `VITE_ADMIN_EMAIL_ALLOWLIST` is not set, the app falls back to `VITE_ADMIN_PASSCODE`.
 
