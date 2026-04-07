@@ -36,6 +36,7 @@ The app can now load curated records from Supabase when these env vars are prese
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` for seeding
 
 Files added for this:
 
@@ -50,8 +51,9 @@ Suggested setup:
 1. Create a Supabase project
 2. Run the SQL in `supabase/schema.sql`
 3. Copy `.env.example` to `.env`
-4. Fill in your Supabase URL and anon key
-5. Restart the dev server
+4. Fill in your Supabase URL, anon key, and service role key
+5. Run `npm run seed:supabase`
+6. Restart the dev server
 
 If Supabase is not configured, the app still works using the bundled curated records in `src/data/curated`
 
@@ -77,6 +79,12 @@ The next step when you are ready:
 4. insert `mentions`
 
 That means we do not need to retype curated records by hand.
+
+You can now seed Supabase with:
+
+```powershell
+npm run seed:supabase
+```
 
 ## Current Source Set
 

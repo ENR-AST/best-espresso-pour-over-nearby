@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed:supabase": "tsx scripts/seed-supabase.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
@@ -20,6 +21,8 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "dotenv": "^17.4.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   }

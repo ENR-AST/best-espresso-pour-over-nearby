@@ -7,6 +7,7 @@ create table if not exists curated_sources (
 
 create table if not exists curated_cafes (
   id bigint generated always as identity primary key,
+  slug text not null unique,
   name text not null,
   city text,
   neighborhood text,
@@ -28,7 +29,8 @@ create table if not exists curated_mentions (
   transparency_boost numeric,
   signal_notes text[] default '{}',
   avoid_notes text[] default '{}',
-  penalty_signals text[] default '{}'
+  penalty_signals text[] default '{}',
+  unique (source_id, cafe_id, source_url)
 );
 
 create index if not exists curated_mentions_source_idx on curated_mentions(source_id);
