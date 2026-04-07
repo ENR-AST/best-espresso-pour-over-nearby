@@ -64,6 +64,13 @@ function App() {
     return requestSequenceRef.current === requestId;
   }
 
+  const refreshCuratedRecords = useCallback(async () => {
+    const curatedSourceResult = await loadCuratedCafeRecords();
+    setCuratedRecords(curatedSourceResult.records);
+    setCuratedRecordsMode(curatedSourceResult.mode);
+    setCuratedRecordsNote(curatedSourceResult.note);
+  }, []);
+
   const displayShops = useMemo(() => {
     return enrichShopsForDisplay(shops, curatedRecords);
   }, [shops, curatedRecords]);
@@ -204,13 +211,8 @@ function App() {
   }, [resetToDefault]);
 
   useEffect(() => {
-    void (async () => {
-      const curatedSourceResult = await loadCuratedCafeRecords();
-      setCuratedRecords(curatedSourceResult.records);
-      setCuratedRecordsMode(curatedSourceResult.mode);
-      setCuratedRecordsNote(curatedSourceResult.note);
-    })();
-  }, []);
+    void refreshCuratedRecords();
+  }, [refreshCuratedRecords]);
 
   useEffect(() => {
     if (autoLocateAttemptedRef.current) return;
@@ -414,7 +416,7 @@ function App() {
         </div>
       </section>
 
-      <AdminPanel curatedMode={curatedRecordsMode} />
+      <AdminPanel curatedMode={curatedRecordsMode} onSaved={refreshCuratedRecords} />
 
       <CafeDetailModal shop={selectedShop} onClose={() => setSelectedShop(null)} />
     </main>

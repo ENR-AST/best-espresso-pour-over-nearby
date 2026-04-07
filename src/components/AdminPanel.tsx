@@ -19,13 +19,18 @@ function parseList(value: string): string[] {
 
 interface AdminPanelProps {
   curatedMode: "supabase" | "local";
+  onSaved: () => Promise<void>;
 }
 
-export function AdminPanel({ curatedMode }: AdminPanelProps) {
+export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
   const [sources, setSources] = useState<AdminSourceRow[]>([]);
   const [cafes, setCafes] = useState<AdminCafeRow[]>([]);
   const [status, setStatus] = useState("Connect Supabase and use this panel to add sources, cafes, and mentions.");
   const [isBusy, setIsBusy] = useState(false);
+  const [passcodeInput, setPasscodeInput] = useState("");
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  const configuredPasscode = import.meta.env.VITE_ADMIN_PASSCODE;
 
   const [sourceForm, setSourceForm] = useState({
     id: "",
@@ -69,6 +74,11 @@ export function AdminPanel({ curatedMode }: AdminPanelProps) {
   }
 
   useEffect(() => {
+    if (!configuredPasscode) {
+      setStatus("Admin panel is disabled until VITE_ADMIN_PASSCODE is configured.");
+      return;
+    }
+
     if (curatedMode !== "supabase") {
       setStatus("Admin panel is ready, but Supabase must be active in this environment before editing.");
       return;
@@ -82,7 +92,7 @@ export function AdminPanel({ curatedMode }: AdminPanelProps) {
         setStatus(error instanceof Error ? error.message : "Could not load admin data.");
       }
     })();
-  }, [curatedMode]);
+  }, [configuredPasscode, curatedMode]);
 
   async function handleCreateSource(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,6 +105,7 @@ export function AdminPanel({ curatedMode }: AdminPanelProps) {
         home_url: sourceForm.homeUrl.trim() || null
       });
       await refreshAdminData();
+      await onSaved();
       setSourceForm({ id: "", name: "", category: "editorial", homeUrl: "" });
       setStatus("Source saved.");
     } catch (error) {
@@ -115,6 +126,7 @@ export function AdminPanel({ curatedMode }: AdminPanelProps) {
         tags: cafeForm.tags
       });
       await refreshAdminData();
+      await onSaved();
       setCafeForm({ name: "", city: "", neighborhood: "", tags: ["specialty"] });
       setStatus("Cafe saved.");
     } catch (error) {
@@ -144,6 +156,8 @@ export function AdminPanel({ curatedMode }: AdminPanelProps) {
         avoidNotes: parseList(mentionForm.avoidNotes),
         penaltySignals: parseList(mentionForm.penaltySignals)
       });
+      await refreshAdminData();
+      await onSaved();
       setMentionForm({
         sourceId: "",
         cafeId: "",
@@ -160,7 +174,7 @@ export function AdminPanel({ curatedMode }: AdminPanelProps) {
         avoidNotes: "",
         penaltySignals: ""
       });
-      setStatus("Mention saved. Refresh the app results if you want to see new source influence.");
+      setStatus("Mention saved. Curated data refreshed.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not save mention.");
     } finally {
@@ -177,6 +191,37 @@ export function AdminPanel({ curatedMode }: AdminPanelProps) {
         </div>
       </div>
 
+      {!configuredPasscode ? (
+        <p className="admin-status">Set <code>VITE_ADMIN_PASSCODE</code> in your environment to enable this editor.</p>
+      ) : !isUnlocked ? (
+        <div className="admin-gate">
+          <p className="admin-status">Enter your admin passcode to unlock the editor.</p>
+          <div className="admin-gate-row">
+            <input
+              type="password"
+              value={passcodeInput}
+              onChange={(event) => setPasscodeInput(event.target.value)}
+              placeholder="Admin passcode"
+            />
+            <button
+              className="cta-secondary"
+              type="button"
+              onClick={() => {
+                if (passcodeInput === configuredPasscode) {
+                  setIsUnlocked(true);
+                  setStatus("Admin unlocked.");
+                  return;
+                }
+
+                setStatus("Incorrect admin passcode.");
+              }}
+            >
+              Unlock
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
       <p className="admin-status">{status}</p>
 
       <div className="admin-grid">
@@ -313,6 +358,8 @@ export function AdminPanel({ curatedMode }: AdminPanelProps) {
           <button className="cta-secondary" disabled={isBusy} type="submit">Save mention</button>
         </form>
       </div>
+        </>
+      )}
     </section>
   );
 }
