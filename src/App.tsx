@@ -4,6 +4,7 @@ import { CafeDetailModal } from "./components/CafeDetailModal";
 import { FilterBar } from "./components/FilterBar";
 import { LocationPanel } from "./components/LocationPanel";
 import { MapCardRail } from "./components/MapCardRail";
+import { AdminPanel } from "./components/AdminPanel";
 import waliEspressoLogo from "./assets/wali-espresso.png";
 import { defaultLocation, findMockLocation, mockLocationEntries } from "./data/mockLocations";
 import { mockCoffeeShops } from "./data/mockCoffeeShops";
@@ -412,6 +413,8 @@ function App() {
           </article>
         </div>
       </section>
+
+      <AdminPanel curatedMode={curatedRecordsMode} />
 
       <CafeDetailModal shop={selectedShop} onClose={() => setSelectedShop(null)} />
     </main>
