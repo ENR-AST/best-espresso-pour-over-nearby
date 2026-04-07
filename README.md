@@ -36,6 +36,7 @@ The app can now load curated records from Supabase when these env vars are prese
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+- `VITE_ADMIN_EMAIL_ALLOWLIST` for real admin email gating
 - `SUPABASE_SERVICE_ROLE_KEY` for seeding
 
 Files added for this:
@@ -54,6 +55,22 @@ Suggested setup:
 4. Fill in your Supabase URL, anon key, and service role key
 5. Run `npm run seed:supabase`
 6. Restart the dev server
+
+### Admin Auth
+
+You can now protect the in-app editor with a real Supabase email sign-in flow.
+
+Set:
+
+- `VITE_ADMIN_EMAIL_ALLOWLIST=enriqueasturizaga@gmail.com`
+
+Then the app will:
+
+1. send a magic link to that email
+2. accept the Supabase session in the browser
+3. unlock the admin panel only for allowlisted emails
+
+If `VITE_ADMIN_EMAIL_ALLOWLIST` is not set, the app falls back to `VITE_ADMIN_PASSCODE`.
 
 If Supabase is not configured, the app still works using the bundled curated records in `src/data/curated`
 
@@ -100,6 +117,7 @@ Structured curated adapters included now:
 - `Beanconqueror`
 - `Roasters app`
 - `Baristapp`
+- regional priority records for `Jersey City`, `Bethesda`, and `Venice`
 
 ## Coffee-First Rules
 

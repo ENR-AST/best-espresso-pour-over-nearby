@@ -244,6 +244,13 @@ a { color: inherit; text-decoration: none; }
   margin: 0.5rem 0 0;
   color: var(--muted);
 }
+.admin-session-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
 .admin-gate {
   display: grid;
   gap: 0.8rem;

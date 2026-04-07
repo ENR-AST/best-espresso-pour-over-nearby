@@ -50,6 +50,31 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+export async function sendAdminMagicLink(email: string): Promise<void> {
+  const supabase = requireSupabase();
+  const redirectTo = typeof window !== "undefined" ? window.location.href.split("#")[0] : undefined;
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: redirectTo
+    }
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function signOutAdmin(): Promise<void> {
+  const supabase = requireSupabase();
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function listCuratedSources(): Promise<AdminSourceRow[]> {
   const supabase = requireSupabase();
   const { data, error } = await supabase
