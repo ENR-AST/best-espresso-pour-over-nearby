@@ -15,8 +15,48 @@ import { fetchNearbyCoffeeShops, geocodeLocation } from "./lib/liveCoffee";
 import { rankCoffeeShops } from "./lib/scoring";
 import type { CoffeeShop, CuratedCafeRecord, FilterKey, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
 
+interface SavedCity {
+  label: string;
+  value: string;
+}
+
+const SAVED_CITIES_STORAGE_KEY = "wali-espresso-saved-cities";
+const defaultSavedCities: SavedCity[] = [
+  { label: "Jersey City", value: "Jersey City, NJ" },
+  { label: "New York City", value: "New York City, NY" },
+  { label: "Bethesda", value: "Bethesda, MD" },
+  { label: "Venice", value: "Venice, FL" }
+];
+
 function normalizeQuery(value: string): string {
   return value.trim();
+}
+
+function normalizeSavedCityValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function createSavedCityLabel(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function loadSavedCities(): SavedCity[] {
+  if (typeof window === "undefined") return defaultSavedCities;
+
+  try {
+    const raw = window.localStorage.getItem(SAVED_CITIES_STORAGE_KEY);
+    if (!raw) return defaultSavedCities;
+
+    const parsed = JSON.parse(raw) as SavedCity[];
+    if (!Array.isArray(parsed) || parsed.length === 0) return defaultSavedCities;
+
+    return parsed.filter((entry) => entry?.label && entry?.value);
+  } catch {
+    return defaultSavedCities;
+  }
 }
 
 function getNearestPrototypeMarket(latitude: number, longitude: number): SearchLocation {
@@ -43,6 +83,7 @@ function App() {
   const [resultsLocation, setResultsLocation] = useState<SearchLocation>(defaultLocation);
   const [locationInput, setLocationInput] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("current");
+  const [savedCities, setSavedCities] = useState<SavedCity[]>(() => loadSavedCities());
   const [geoStatus, setGeoStatus] = useState("Trying to detect your location automatically...");
   const [resultsStatus, setResultsStatus] = useState<"live" | "fallback">("fallback");
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
@@ -215,6 +256,10 @@ function App() {
   }, [refreshCuratedRecords]);
 
   useEffect(() => {
+    window.localStorage.setItem(SAVED_CITIES_STORAGE_KEY, JSON.stringify(savedCities));
+  }, [savedCities]);
+
+  useEffect(() => {
     if (autoLocateAttemptedRef.current) return;
     autoLocateAttemptedRef.current = true;
     void handleUseMyLocation();
@@ -319,6 +364,113 @@ function App() {
     void handleUseMyLocation();
   }
 
+  function handleAddSavedCity(cityValue: string) {
+    const normalizedValue = cityValue.trim();
+    if (!normalizedValue) return;
+
+    setSavedCities((current) => {
+      const alreadyExists = current.some(
+        (entry) => normalizeSavedCityValue(entry.value) === normalizeSavedCityValue(normalizedValue)
+      );
+
+      if (alreadyExists) {
+        setGeoStatus(`${createSavedCityLabel(normalizedValue)} is already in My Cities.`);
+        return current;
+      }
+
+      const nextEntry = {
+        label: createSavedCityLabel(normalizedValue),
+        value: normalizedValue
+      };
+
+      setGeoStatus(`${nextEntry.label} was added to My Cities.`);
+      return [...current, nextEntry];
+    });
+  }
+
+  function handleSelectSavedCity(cityValue: string) {
+    setSearchMode("city");
+    setLocationInput(cityValue);
+    setGeoStatus(`Searching saved city: ${cityValue}`);
+
+    window.setTimeout(() => {
+      void handleSavedCitySearch(cityValue);
+    }, 0);
+  }
+
+  async function handleSavedCitySearch(cityValue: string) {
+    setLocationInput(cityValue);
+    const requestId = beginLocationRequest();
+    const query = normalizeQuery(cityValue);
+    if (!query) return;
+
+    setIsLoading(true);
+
+    let liveLocation: SearchLocation | null = null;
+
+    try {
+      liveLocation = await geocodeLocation(query, "city");
+    } catch (error) {
+      const matchedLocation = findMockLocation(query.toLowerCase());
+      if (matchedLocation) {
+        if (!isLatestLocationRequest(requestId)) return;
+        setLocation(matchedLocation);
+        setResultsLocation(matchedLocation);
+        setShops(mockCoffeeShops);
+        setResultsStatus("fallback");
+        setGeoStatus(`Live lookup missed ${query}, so the app used the prototype match: ${matchedLocation.label}.`);
+        setIsLoading(false);
+        return;
+      }
+
+      if (isLatestLocationRequest(requestId)) {
+        setGeoStatus(error instanceof Error ? error.message : "Search failed.");
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    if (!liveLocation) {
+      if (isLatestLocationRequest(requestId)) {
+        setGeoStatus(`Could not find ${query} yet.`);
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    const nearestPrototype = getNearestPrototypeMarket(liveLocation.latitude, liveLocation.longitude);
+
+    try {
+      const liveShops = await fetchNearbyCoffeeShops(liveLocation);
+      if (!isLatestLocationRequest(requestId)) return;
+      setLocation(liveLocation);
+
+      if (liveShops.length > 0) {
+        setResultsLocation(liveLocation);
+        setShops(liveShops);
+        setResultsStatus("live");
+        setGeoStatus(`Saved city applied: ${liveLocation.label}. Found ${liveShops.length} nearby coffee places.`);
+        setIsLoading(false);
+        return;
+      }
+
+      setResultsLocation(nearestPrototype);
+      setShops(mockCoffeeShops);
+      setResultsStatus("fallback");
+      setGeoStatus(`Found ${liveLocation.label}, but live nearby cafes were unavailable. Showing fallback recommendations centered near ${nearestPrototype.label}.`);
+      setIsLoading(false);
+    } catch (error) {
+      if (!isLatestLocationRequest(requestId)) return;
+
+      setLocation(liveLocation);
+      setResultsLocation(nearestPrototype);
+      setShops(mockCoffeeShops);
+      setResultsStatus("fallback");
+      setGeoStatus(`Found ${liveLocation.label}, but nearby lookup failed. Showing fallback recommendations centered near ${nearestPrototype.label} instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
+      setIsLoading(false);
+    }
+  }
+
   function handleSelectMode(mode: SearchMode) {
     setSearchMode(mode);
     setLocationInput("");
@@ -342,10 +494,13 @@ function App() {
           onUseMyLocation={handleUseMyLocation}
           onReset={handleReset}
           onSelectMode={handleSelectMode}
+          onSelectSavedCity={handleSelectSavedCity}
+          onAddSavedCity={handleAddSavedCity}
           searchMode={searchMode}
           geoStatus={geoStatus}
           logoSrc={waliEspressoLogo}
           isLoading={isLoading}
+          savedCities={savedCities}
         />
       </section>
 

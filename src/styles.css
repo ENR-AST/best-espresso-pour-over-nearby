@@ -128,12 +128,48 @@ a { color: inherit; text-decoration: none; }
 .action-button.wide { width: 100%; }
 .action-button:hover, .cta-secondary:hover, .details-link:hover, .filter-chip:hover, .close-button:hover { transform: translateY(-1px); }
 .manual-search { display: grid; grid-template-columns: 1fr; gap: 0.7rem; margin-top: 0.2rem; }
+.add-city-button {
+  background: rgba(96, 104, 72, 0.1);
+  color: var(--olive);
+}
 .manual-search input {
   width: 100%;
   padding: 0.9rem 1rem;
   border-radius: 16px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.96);
+}
+.saved-cities-panel {
+  margin-top: 0.95rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid rgba(93, 58, 35, 0.08);
+  display: grid;
+  gap: 0.75rem;
+}
+.saved-cities-header {
+  display: grid;
+  gap: 0.35rem;
+}
+.saved-cities-hint {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.saved-cities-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.saved-city-chip {
+  border: 1px solid rgba(93, 58, 35, 0.08);
+  border-radius: 999px;
+  padding: 0.72rem 0.95rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text);
+  transition: background-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+.saved-city-chip:hover {
+  transform: translateY(-1px);
+  background: rgba(164, 74, 43, 0.08);
 }
 .cta-secondary { padding: 0.85rem 1.1rem; background: #2f1d14; color: white; font-weight: 700; }
 .status-grid, .metric-row, .top-pick-stats, .external-links { display: grid; gap: 0.65rem; }

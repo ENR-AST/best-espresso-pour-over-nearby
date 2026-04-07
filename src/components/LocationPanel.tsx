@@ -1,4 +1,9 @@
-﻿import type { SearchLocation, SearchMode } from "../types/coffee";
+import type { SearchLocation, SearchMode } from "../types/coffee";
+
+interface SavedCity {
+  label: string;
+  value: string;
+}
 
 interface LocationPanelProps {
   locationInput: string;
@@ -7,11 +12,14 @@ interface LocationPanelProps {
   onSearch: () => void;
   onReset: () => void;
   onSelectMode: (value: SearchMode) => void;
+  onSelectSavedCity: (cityValue: string) => void;
+  onAddSavedCity: (cityValue: string) => void;
   searchMode: SearchMode;
   location: SearchLocation;
   geoStatus: string;
   logoSrc: string;
   isLoading: boolean;
+  savedCities: SavedCity[];
 }
 
 export function LocationPanel({
@@ -21,13 +29,22 @@ export function LocationPanel({
   onSearch,
   onReset,
   onSelectMode,
+  onSelectSavedCity,
+  onAddSavedCity,
   searchMode,
   location,
   geoStatus,
   logoSrc,
-  isLoading
+  isLoading,
+  savedCities
 }: LocationPanelProps) {
   const placeholder = searchMode === "zip" ? "Enter a 5-digit ZIP code" : "Enter a city or neighborhood";
+
+  function handleAddSavedCity() {
+    const nextValue = locationInput.trim();
+    if (!nextValue) return;
+    onAddSavedCity(nextValue);
+  }
 
   return (
     <section className="hero-panel">
@@ -98,8 +115,41 @@ export function LocationPanel({
             <button className="cta-secondary" onClick={onSearch} disabled={isLoading}>
               {isLoading ? "Searching..." : "Search"}
             </button>
+            {searchMode === "city" ? (
+              <button
+                className="action-button add-city-button"
+                onClick={handleAddSavedCity}
+                disabled={!locationInput.trim() || isLoading}
+                type="button"
+              >
+                Add city to My Cities
+              </button>
+            ) : null}
           </div>
         )}
+
+        <div className="saved-cities-panel">
+          <div className="saved-cities-header">
+            <div>
+              <span className="status-label">My cities</span>
+              <strong>Home and travel shortcuts</strong>
+            </div>
+            <span className="saved-cities-hint">Tap one to search instantly, or add a new city while traveling.</span>
+          </div>
+          <div className="saved-cities-row">
+            {savedCities.map((city) => (
+              <button
+                key={city.value}
+                className="saved-city-chip"
+                type="button"
+                onClick={() => onSelectSavedCity(city.value)}
+                disabled={isLoading}
+              >
+                {city.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="status-grid">
           <div>
