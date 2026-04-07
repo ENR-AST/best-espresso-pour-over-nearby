@@ -43,6 +43,7 @@ Files added for this:
 - `supabase/schema.sql`
 - `src/lib/supabaseClient.ts`
 - `src/lib/curatedSourceStore.ts`
+- `src/data/curatedSeed.ts`
 
 Suggested setup:
 
@@ -53,6 +54,29 @@ Suggested setup:
 5. Restart the dev server
 
 If Supabase is not configured, the app still works using the bundled curated records in `src/data/curated`
+
+## Seed Strategy
+
+The repo now includes a normalized seed builder:
+
+- `src/data/curatedSeed.ts`
+
+It derives three payloads from the curated source files:
+
+- `sources`
+- `cafes`
+- `mentions`
+
+This matches the Supabase schema directly and is the intended bridge for moving from hardcoded records to database rows.
+
+The next step when you are ready:
+
+1. export the seed payload
+2. insert `sources`
+3. insert `cafes`
+4. insert `mentions`
+
+That means we do not need to retype curated records by hand.
 
 ## Current Source Set
 
