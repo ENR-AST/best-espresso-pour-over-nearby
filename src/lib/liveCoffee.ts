@@ -34,6 +34,18 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.kumi.systems/api/interpreter"
 ];
 const DEFAULT_SEARCH_RADIUS_METERS = 24140;
+const EXCLUDED_CHAIN_PATTERNS = [
+  /\bstarbucks\b/i,
+  /\bdunkin\b/i,
+  /\bpeet'?s\b/i,
+  /\btim hortons\b/i,
+  /\bcosta coffee\b/i,
+  /\bcaribou coffee\b/i,
+  /\bthe coffee bean\b/i,
+  /\bcoffee bean & tea leaf\b/i,
+  /\bgloria jean'?s\b/i,
+  /\bphilz\b/i
+];
 
 function safeNumber(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
@@ -43,6 +55,10 @@ function safeNumber(value: string | undefined, fallback: number): number {
 
 function normalizeText(value: string | undefined): string {
   return (value ?? "").trim();
+}
+
+export function isExcludedLargeChain(name: string): boolean {
+  return EXCLUDED_CHAIN_PATTERNS.some((pattern) => pattern.test(name));
 }
 
 function inferTags(tags: Record<string, string>): Tag[] {
@@ -128,6 +144,7 @@ function toCoffeeShop(element: OverpassElement, location: SearchLocation): Coffe
   const longitude = element.lon ?? element.center?.lon;
 
   if (!name || latitude === undefined || longitude === undefined) return null;
+  if (isExcludedLargeChain(name)) return null;
 
   const inferredTags = inferTags(tags);
   const isRoaster = inferredTags.includes("roaster");

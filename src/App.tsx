@@ -11,7 +11,7 @@ import { mockCoffeeShops } from "./data/mockCoffeeShops";
 import { enrichCoffeeShopsWithCuratedSignals } from "./lib/curatedEnrichment";
 import { loadCuratedCafeRecords } from "./lib/curatedSourceStore";
 import { getDistanceMiles } from "./lib/geo";
-import { fetchNearbyCoffeeShops, geocodeLocation } from "./lib/liveCoffee";
+import { fetchNearbyCoffeeShops, geocodeLocation, isExcludedLargeChain } from "./lib/liveCoffee";
 import { rankCoffeeShops } from "./lib/scoring";
 import type { CoffeeShop, CuratedCafeRecord, FilterKey, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
 
@@ -75,7 +75,9 @@ function getNearestPrototypeMarket(latitude: number, longitude: number): SearchL
 }
 
 function enrichShopsForDisplay(shops: CoffeeShop[], curatedRecords: CuratedCafeRecord[]): CoffeeShop[] {
-  return enrichCoffeeShopsWithCuratedSignals(shops, curatedRecords);
+  return enrichCoffeeShopsWithCuratedSignals(shops, curatedRecords).filter(
+    (shop) => !isExcludedLargeChain(shop.name)
+  );
 }
 
 function App() {
