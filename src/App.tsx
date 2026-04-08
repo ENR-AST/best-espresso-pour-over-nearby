@@ -503,6 +503,7 @@ function App() {
           logoSrc={waliEspressoLogo}
           isLoading={isLoading}
           savedCities={savedCities}
+          previewShops={rankedShops.slice(0, 3)}
         />
       </section>
 
