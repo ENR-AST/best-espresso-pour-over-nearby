@@ -188,3 +188,7 @@ Suggested columns:
 1. Move live geocoding/places behind a small backend for more reliable API behavior
 2. Add more curated coffee sources
 3. Store curated records outside code in a database or content file
+
+## Full Documentation
+
+- `docs/APP_DOCUMENTATION.md`
