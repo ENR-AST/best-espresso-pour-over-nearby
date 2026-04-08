@@ -336,6 +336,31 @@ npm run seed:supabase
 - `VITE_ADMIN_REDIRECT_URL`
 - `VITE_ADMIN_PASSCODE` optional fallback
 
+## Phone Install Guide
+
+The app now includes a web manifest, app icons, and a service worker so it can behave more like an installable phone app.
+
+### iPhone
+
+1. Open the live site in Safari
+2. Tap `Share`
+3. Tap `Add to Home Screen`
+4. Confirm the app name
+5. Tap `Add`
+
+### Android
+
+1. Open the live site in Chrome
+2. Open the browser menu
+3. Tap `Add to Home screen` or `Install app`
+4. Confirm the install
+
+### Notes
+
+- the app still uses live internet data
+- it behaves like a Progressive Web App, not a native App Store app
+- after updates, users may need to refresh once to pick up the newest version
+
 ## Known Limitations
 
 - live place lookup depends on public third-party services
