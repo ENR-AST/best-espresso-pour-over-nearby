@@ -32,6 +32,7 @@ export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
       <div className="metric-row simple-metrics">
         <span>{shop.distanceMiles.toFixed(1)} mi</span>
         <span>{shop.openNow ? "Open now" : "Closed now"}</span>
+        {shop.personalScore !== undefined ? <span>Your score {shop.personalScore.toFixed(1)}</span> : null}
       </div>
 
       <p className="why-copy short">{shortWhy}</p>

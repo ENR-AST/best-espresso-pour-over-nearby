@@ -372,6 +372,41 @@ a { color: inherit; text-decoration: none; }
 .leaflet-map { width: 100%; height: 320px; }
 .map-rail, .architecture-grid, .detail-grid, .evidence-list { display: grid; gap: 0.75rem; }
 .mini-map-card, .architecture-grid article, .evidence-card { padding: 0.85rem; }
+.review-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+.review-grid label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.review-grid input,
+.review-notes {
+  width: 100%;
+  padding: 0.8rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.96);
+  font: inherit;
+  color: var(--text);
+}
+.review-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+  color: var(--text);
+}
+.review-notes {
+  margin-top: 0.8rem;
+  resize: vertical;
+}
+.review-save-button {
+  margin-top: 0.85rem;
+}
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -401,6 +436,7 @@ a { color: inherit; text-decoration: none; }
   .hero-copy { padding-right: 0.6rem; }
   .mode-select-row { grid-template-columns: minmax(0, 1fr) 180px; align-items: end; }
   .manual-search, .status-grid, .top-pick-stats, .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .content-grid { grid-template-columns: minmax(0, 1.35fr) minmax(340px, 1fr); align-items: start; }
   .architecture-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .admin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

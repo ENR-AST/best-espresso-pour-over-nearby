@@ -11,9 +11,10 @@ import { mockCoffeeShops } from "./data/mockCoffeeShops";
 import { enrichCoffeeShopsWithCuratedSignals } from "./lib/curatedEnrichment";
 import { loadCuratedCafeRecords } from "./lib/curatedSourceStore";
 import { getDistanceMiles } from "./lib/geo";
+import { loadPersonalReviews, savePersonalReviews, type PersonalReviewMap } from "./lib/personalReviews";
 import { fetchNearbyCoffeeShops, geocodeLocation, isExcludedLargeChain } from "./lib/liveCoffee";
 import { rankCoffeeShops } from "./lib/scoring";
-import type { CoffeeShop, CuratedCafeRecord, FilterKey, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
+import type { CoffeeShop, CuratedCafeRecord, FilterKey, PersonalReview, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
 
 interface SavedCity {
   label: string;
@@ -91,6 +92,7 @@ function App() {
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
   const [selectedShop, setSelectedShop] = useState<RankedCoffeeShop | null>(null);
   const [shops, setShops] = useState<CoffeeShop[]>(mockCoffeeShops);
+  const [personalReviews, setPersonalReviews] = useState<PersonalReviewMap>(() => loadPersonalReviews());
   const [curatedRecords, setCuratedRecords] = useState<CuratedCafeRecord[]>([]);
   const [curatedRecordsMode, setCuratedRecordsMode] = useState<"supabase" | "local">("local");
   const [curatedRecordsNote, setCuratedRecordsNote] = useState("Using bundled curated source records while the app loads.");
@@ -119,8 +121,8 @@ function App() {
   }, [shops, curatedRecords]);
 
   const rankedShops = useMemo(() => {
-    return rankCoffeeShops(displayShops, resultsLocation, activeFilters);
-  }, [displayShops, resultsLocation, activeFilters]);
+    return rankCoffeeShops(displayShops, resultsLocation, activeFilters, personalReviews);
+  }, [displayShops, resultsLocation, activeFilters, personalReviews]);
 
   const topPick = rankedShops[0];
 
@@ -256,6 +258,10 @@ function App() {
   useEffect(() => {
     void refreshCuratedRecords();
   }, [refreshCuratedRecords]);
+
+  useEffect(() => {
+    savePersonalReviews(personalReviews);
+  }, [personalReviews]);
 
   useEffect(() => {
     window.localStorage.setItem(SAVED_CITIES_STORAGE_KEY, JSON.stringify(savedCities));
@@ -485,6 +491,18 @@ function App() {
     setGeoStatus(mode === "zip" ? "ZIP code mode selected. Enter a 5-digit ZIP code." : "City mode selected. Enter a city or neighborhood.");
   }
 
+  function handleSavePersonalReview(review: PersonalReview) {
+    setPersonalReviews((current) => ({
+      ...current,
+      [review.shopId]: review
+    }));
+    setGeoStatus(`Saved your grading for ${selectedShop?.name ?? "this cafe"}. Your ranking now reflects it.`);
+  }
+
+  const selectedShopWithReview = selectedShop
+    ? rankedShops.find((shop) => shop.id === selectedShop.id) ?? selectedShop
+    : null;
+
   return (
     <main className="app-shell">
       <section id="about">
@@ -576,7 +594,12 @@ function App() {
 
       <AdminPanel curatedMode={curatedRecordsMode} onSaved={refreshCuratedRecords} />
 
-      <CafeDetailModal shop={selectedShop} onClose={() => setSelectedShop(null)} />
+      <CafeDetailModal
+        shop={selectedShopWithReview}
+        personalReview={selectedShopWithReview ? personalReviews[selectedShopWithReview.id] : undefined}
+        onSavePersonalReview={handleSavePersonalReview}
+        onClose={() => setSelectedShop(null)}
+      />
     </main>
   );
 }

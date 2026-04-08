@@ -10,6 +10,19 @@ export type FilterKey = "open-now" | "walkable";
 
 export type SearchMode = "current" | "city" | "zip";
 
+export interface PersonalReview {
+  shopId: string;
+  espressoScore: number;
+  pourOverScore: number;
+  beanTransparencyScore: number;
+  menuFocusScore: number;
+  serviceScore: number;
+  ambianceScore: number;
+  wouldReturn: boolean;
+  notes: string;
+  updatedAt: string;
+}
+
 export interface SourceEvidence {
   source: string;
   category: SourceCategory;
@@ -75,4 +88,5 @@ export interface RankedCoffeeShop extends CoffeeShop {
   distanceMiles: number;
   specialtyScore: number;
   supportLabels: string[];
+  personalScore?: number;
 }
