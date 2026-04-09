@@ -82,6 +82,84 @@ function enrichShopsForDisplay(shops: CoffeeShop[], curatedRecords: CuratedCafeR
   );
 }
 
+function buildYourListShops(
+  curatedRecords: CuratedCafeRecord[],
+  resultsLocation: SearchLocation,
+  existingShops: CoffeeShop[]
+): CoffeeShop[] {
+  const existingNames = new Set(existingShops.map((shop) => shop.name.trim().toLowerCase()));
+  const grouped = new Map<string, CuratedCafeRecord[]>();
+  const locationLabel = resultsLocation.label.toLowerCase();
+
+  const candidateRecords = curatedRecords.filter((record) => {
+    if (record.sourceId !== "your-list") {
+      return false;
+    }
+
+    const city = record.city?.toLowerCase() ?? "";
+    return !city || locationLabel.includes(city) || city.includes(locationLabel);
+  });
+
+  for (const record of candidateRecords) {
+    const key = `${record.cafeName.toLowerCase()}|${record.city?.toLowerCase() ?? ""}|${record.neighborhood?.toLowerCase() ?? ""}`;
+    const current = grouped.get(key) ?? [];
+    current.push(record);
+    grouped.set(key, current);
+  }
+
+  return Array.from(grouped.values())
+    .filter((records) => !existingNames.has(records[0].cafeName.trim().toLowerCase()))
+    .map((records, index) => {
+      const primary = records[0];
+      const latitudeOffset = (index + 1) * 0.0011;
+      const longitudeOffset = (index + 1) * 0.0009;
+      const tags = Array.from(new Set(records.flatMap((record) => record.tags)));
+      const espressoBoost = Math.max(...records.map((record) => record.espressoBoost ?? 0), 0);
+      const pourOverBoost = Math.max(...records.map((record) => record.pourOverBoost ?? 0), 0);
+      const roasterBoost = Math.max(...records.map((record) => record.roasterBoost ?? 0), 0);
+      const credibilityBoost = Math.max(...records.map((record) => record.credibilityBoost ?? 0), 0);
+      const signalNotes = Array.from(new Set(records.flatMap((record) => record.signalNotes ?? [])));
+      const penaltySignals = Array.from(new Set(records.flatMap((record) => record.penaltySignals ?? [])));
+      const sources = records.map((record) => ({
+        source: record.sourceName,
+        category: record.category,
+        note: record.evidenceNote,
+        weight: record.confidence,
+        url: record.sourceUrl
+      }));
+
+      return {
+        id: `your-list-${primary.cafeName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        name: primary.cafeName,
+        discoveredByYou: true,
+        streetAddress: undefined,
+        neighborhood: primary.neighborhood ?? "Added by you",
+        city: primary.city ?? resultsLocation.label,
+        state: undefined,
+        zipCode: "",
+        latitude: resultsLocation.latitude + latitudeOffset,
+        longitude: resultsLocation.longitude + longitudeOffset,
+        openNow: true,
+        tags,
+        distanceHintMiles: 0.6 + index * 0.15,
+        espressoEvidence: Math.min(10, 5.5 + espressoBoost * 4),
+        pourOverEvidence: Math.min(10, 5.5 + pourOverBoost * 4),
+        roasterProgram: Math.min(10, 4 + roasterBoost * 4),
+        credibilitySignals: Math.min(10, 6 + credibilityBoost * 4),
+        publicRating: 4.2,
+        sources,
+        whyRecommended: "Added by you from the admin editor, so it appears directly in your coffee list.",
+        signalNotes,
+        avoidNotes: [],
+        penaltySignals,
+        externalLinks: records.map((record) => ({
+          label: record.sourceName,
+          url: record.sourceUrl
+        }))
+      } satisfies CoffeeShop;
+    });
+}
+
 function App() {
   const [location, setLocation] = useState<SearchLocation>(defaultLocation);
   const [resultsLocation, setResultsLocation] = useState<SearchLocation>(defaultLocation);
@@ -118,8 +196,10 @@ function App() {
   }, []);
 
   const displayShops = useMemo(() => {
-    return enrichShopsForDisplay([...shops, ...discoveredShops], curatedRecords);
-  }, [shops, discoveredShops, curatedRecords]);
+    const baseShops = [...shops, ...discoveredShops];
+    const yourListShops = buildYourListShops(curatedRecords, resultsLocation, baseShops);
+    return enrichShopsForDisplay([...baseShops, ...yourListShops], curatedRecords);
+  }, [shops, discoveredShops, curatedRecords, resultsLocation]);
 
   const rankedShops = useMemo(() => {
     return rankCoffeeShops(displayShops, resultsLocation, activeFilters, personalReviews);
