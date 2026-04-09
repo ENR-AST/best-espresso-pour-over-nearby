@@ -80,7 +80,7 @@ export function LocationPanel({
       <div className="hero-layout hero-layout-balanced">
         <div className="hero-copy">
           <p className="eyebrow">Best Espresso & Pour Over Nearby</p>
-          <h1>Coffe Near Yoy</h1>
+          <h1>Coffe Near You</h1>
           <p className="lead">
             Search by your location, city, or ZIP code and get specialty-focused recommendations backed by coffee-first evidence.
           </p>
