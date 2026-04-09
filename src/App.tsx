@@ -555,6 +555,7 @@ function App() {
 
     const personalReview: PersonalReview = {
       shopId: discoveredShop.id,
+      overallScore: draft.overallScore,
       espressoScore: draft.espressoScore,
       pourOverScore: draft.pourOverScore,
       beanTransparencyScore: draft.beanTransparencyScore,

@@ -12,6 +12,7 @@ export type SearchMode = "current" | "city" | "zip";
 
 export interface PersonalReview {
   shopId: string;
+  overallScore: number;
   espressoScore: number;
   pourOverScore: number;
   beanTransparencyScore: number;
@@ -30,6 +31,7 @@ export interface DiscoveredShopDraft {
   zipCode: string;
   website?: string;
   tags: Tag[];
+  overallScore: number;
   espressoScore: number;
   pourOverScore: number;
   beanTransparencyScore: number;

@@ -10,6 +10,7 @@ interface CafeDetailModalProps {
 }
 
 interface ReviewFormState {
+  overallScore: string;
   espressoScore: string;
   pourOverScore: string;
   beanTransparencyScore: string;
@@ -30,6 +31,7 @@ interface DiscoveredFormState extends ReviewFormState {
 }
 
 const defaultForm: ReviewFormState = {
+  overallScore: "8",
   espressoScore: "8",
   pourOverScore: "8",
   beanTransparencyScore: "8",
@@ -59,7 +61,17 @@ export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, on
     if (!personalReview) {
       setForm(defaultForm);
     } else {
+      const fallbackOverallScore = (
+        personalReview.espressoScore +
+        personalReview.pourOverScore +
+        personalReview.beanTransparencyScore +
+        personalReview.menuFocusScore +
+        personalReview.serviceScore +
+        personalReview.ambianceScore
+      ) / 6;
+
       setForm({
+        overallScore: String(personalReview.overallScore ?? Number(fallbackOverallScore.toFixed(1))),
         espressoScore: String(personalReview.espressoScore),
         pourOverScore: String(personalReview.pourOverScore),
         beanTransparencyScore: String(personalReview.beanTransparencyScore),
@@ -92,6 +104,7 @@ export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, on
   function saveReview() {
     const review: PersonalReview = {
       shopId: activeShop.id,
+      overallScore: Number(form.overallScore),
       espressoScore: Number(form.espressoScore),
       pourOverScore: Number(form.pourOverScore),
       beanTransparencyScore: Number(form.beanTransparencyScore),
@@ -127,6 +140,7 @@ export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, on
       zipCode: discoveredForm.zipCode.trim(),
       website: discoveredForm.website.trim(),
       tags: discoveredForm.tags.length > 0 ? discoveredForm.tags : defaultDiscoveredTags,
+      overallScore: Number(discoveredForm.overallScore),
       espressoScore: Number(discoveredForm.espressoScore),
       pourOverScore: Number(discoveredForm.pourOverScore),
       beanTransparencyScore: Number(discoveredForm.beanTransparencyScore),
@@ -190,6 +204,10 @@ export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, on
             <p className="admin-status">Your personal grading now has strong weight in the ranking for reviewed cafes.</p>
             <div className="review-grid">
               <label>
+                Your rank
+                <input type="number" min="1" max="10" value={form.overallScore} onChange={(event) => setForm((current) => ({ ...current, overallScore: event.target.value }))} />
+              </label>
+              <label>
                 Espresso
                 <input type="number" min="1" max="10" value={form.espressoScore} onChange={(event) => setForm((current) => ({ ...current, espressoScore: event.target.value }))} />
               </label>
@@ -242,6 +260,10 @@ export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, on
 
               {showDiscoveredForm ? (
                 <div className="review-grid discovered-grid">
+                  <label>
+                    Your rank
+                    <input type="number" min="1" max="10" value={discoveredForm.overallScore} onChange={(event) => setDiscoveredForm((current) => ({ ...current, overallScore: event.target.value }))} />
+                  </label>
                   <label>
                     Shop name
                     <input value={discoveredForm.name} onChange={(event) => setDiscoveredForm((current) => ({ ...current, name: event.target.value }))} />
