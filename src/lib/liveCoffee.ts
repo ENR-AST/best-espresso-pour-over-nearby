@@ -33,7 +33,7 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter"
 ];
-const DEFAULT_SEARCH_RADIUS_METERS = 24140;
+const DEFAULT_SEARCH_RADIUS_METERS = 16093;
 const EXCLUDED_CHAIN_PATTERNS = [
   /\bstarbucks\b/i,
   /\bdunkin\b/i,
