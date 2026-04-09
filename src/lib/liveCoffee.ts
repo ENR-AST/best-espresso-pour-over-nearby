@@ -175,14 +175,14 @@ function toCoffeeShop(element: OverpassElement, location: SearchLocation): Coffe
       {
         source: "OpenStreetMap",
         category: "public-review",
-        note: "Live nearby coffee place from OpenStreetMap. Specialty enrichment still needs curated source ingestion.",
+        note: "Live nearby coffee place from OpenStreetMap, blended with coffee-first signals and curated specialty enrichment when available.",
         weight: 0.35,
         url: `https://www.openstreetmap.org/${element.type}/${element.id}`
       }
     ],
     whyRecommended: isRoaster
-      ? "Nearby live result with roastery signals. Specialty ranking is provisional until curated coffee sources are connected."
-      : "Nearby live coffee result. Specialty ranking is provisional until curated coffee sources are connected.",
+      ? "Nearby live result with roastery signals and stronger coffee-first potential."
+      : "Nearby live coffee result selected for coffee-first signals and local relevance.",
     signalNotes,
     penaltySignals,
     avoidNotes: penaltySignals.length > 0 ? ["available metadata suggests this may be less coffee-focused than the strongest specialty picks"] : [],
