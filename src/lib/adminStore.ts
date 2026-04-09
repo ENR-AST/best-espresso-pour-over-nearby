@@ -17,6 +17,14 @@ export interface AdminCafeRow {
   tags: Tag[];
 }
 
+export interface AdminPersonalCafeInput {
+  name: string;
+  city?: string;
+  neighborhood?: string;
+  tags: Tag[];
+  overallScore: number;
+}
+
 export interface AdminMentionInput {
   sourceId: string;
   cafeId: number;
@@ -129,7 +137,7 @@ export async function createCuratedCafe(input: {
   city?: string;
   neighborhood?: string;
   tags: Tag[];
-}): Promise<void> {
+}): Promise<AdminCafeRow> {
   const supabase = requireSupabase();
   const slug = slugify([input.name, input.city ?? "", input.neighborhood ?? ""].filter(Boolean).join("-"));
   const { error } = await supabase
@@ -144,10 +152,59 @@ export async function createCuratedCafe(input: {
       },
       { onConflict: "slug" }
     );
-
+    
   if (error) {
     throw new Error(error.message);
   }
+
+  const { data: selectedRow, error: selectError } = await supabase
+    .from("curated_cafes")
+    .select("id, slug, name, city, neighborhood, tags")
+    .eq("slug", slug)
+    .single();
+
+  if (selectError) {
+    throw new Error(selectError.message);
+  }
+
+  return selectedRow as AdminCafeRow;
+}
+
+export async function createPersonalCafe(input: AdminPersonalCafeInput): Promise<void> {
+  const supabase = requireSupabase();
+  const cafe = await createCuratedCafe({
+    name: input.name,
+    city: input.city,
+    neighborhood: input.neighborhood,
+    tags: input.tags
+  });
+
+  await createCuratedSource({
+    id: "your-list",
+    name: "Your list",
+    category: "community",
+    home_url: null
+  });
+
+  const score = Math.max(1, Math.min(10, input.overallScore));
+  const boost = Number((score / 10).toFixed(2));
+
+  await createCuratedMention({
+    sourceId: "your-list",
+    cafeId: cafe.id,
+    confidence: 0.95,
+    evidenceNote: "Added by you from the admin editor as a personally selected coffee shop.",
+    sourceUrl: import.meta.env.VITE_ADMIN_REDIRECT_URL || "https://best-espresso-pour-over-nearby.vercel.app",
+    espressoBoost: boost,
+    pourOverBoost: boost,
+    roasterBoost: input.tags.includes("roaster") ? boost : Math.max(0.2, Number((boost * 0.5).toFixed(2))),
+    credibilityBoost: boost,
+    coffeeFocusBoost: boost,
+    transparencyBoost: boost,
+    signalNotes: [`your overall rank is ${score}/10`],
+    avoidNotes: [],
+    penaltySignals: []
+  });
 }
 
 export async function createCuratedMention(input: AdminMentionInput): Promise<void> {
