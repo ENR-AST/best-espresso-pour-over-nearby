@@ -253,6 +253,48 @@ export async function geocodeLocation(query: string, mode: SearchMode): Promise<
   };
 }
 
+export async function reverseGeocodeLocation(latitude: number, longitude: number): Promise<string | null> {
+  const url = new URL("https://nominatim.openstreetmap.org/reverse");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("lat", String(latitude));
+  url.searchParams.set("lon", String(longitude));
+  url.searchParams.set("zoom", "12");
+  url.searchParams.set("addressdetails", "1");
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Reverse geocoding failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    display_name?: string;
+    address?: Record<string, string>;
+  };
+
+  const address = data.address ?? {};
+  const cityLabel =
+    address.city ||
+    address.town ||
+    address.village ||
+    address.municipality ||
+    address.suburb ||
+    address.county;
+  const stateLabel = address.state_code || address.state;
+
+  if (cityLabel && stateLabel) {
+    return `${cityLabel}, ${stateLabel}`;
+  }
+
+  if (cityLabel) {
+    return cityLabel;
+  }
+
+  return data.display_name?.split(",").slice(0, 2).join(", ").trim() || null;
+}
+
 async function fetchOverpass(endpoint: string, body: string): Promise<{ elements?: OverpassElement[] }> {
   const response = await fetch(endpoint, {
     method: "POST",

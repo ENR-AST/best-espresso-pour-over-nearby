@@ -13,7 +13,7 @@ import { loadCuratedCafeRecords } from "./lib/curatedSourceStore";
 import { loadDiscoveredShops, saveDiscoveredShops } from "./lib/discoveredShops";
 import { getDistanceMiles } from "./lib/geo";
 import { loadPersonalReviews, savePersonalReviews, type PersonalReviewMap } from "./lib/personalReviews";
-import { fetchNearbyCoffeeShops, geocodeLocation, isExcludedLargeChain } from "./lib/liveCoffee";
+import { fetchNearbyCoffeeShops, geocodeLocation, isExcludedLargeChain, reverseGeocodeLocation } from "./lib/liveCoffee";
 import { rankCoffeeShops } from "./lib/scoring";
 import type { CoffeeShop, CuratedCafeRecord, DiscoveredShopDraft, FilterKey, PersonalReview, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
 
@@ -88,18 +88,17 @@ function App() {
   const [locationInput, setLocationInput] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("current");
   const [savedCities, setSavedCities] = useState<SavedCity[]>(() => loadSavedCities());
-  const [geoStatus, setGeoStatus] = useState("Trying to detect your location automatically...");
+  const [geoStatus, setGeoStatus] = useState("Use your location or enter a ZIP code/city to begin.");
   const [resultsStatus, setResultsStatus] = useState<"live" | "fallback">("fallback");
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
   const [selectedShop, setSelectedShop] = useState<RankedCoffeeShop | null>(null);
-  const [shops, setShops] = useState<CoffeeShop[]>(mockCoffeeShops);
+  const [shops, setShops] = useState<CoffeeShop[]>([]);
   const [discoveredShops, setDiscoveredShops] = useState<CoffeeShop[]>(() => loadDiscoveredShops());
   const [personalReviews, setPersonalReviews] = useState<PersonalReviewMap>(() => loadPersonalReviews());
   const [curatedRecords, setCuratedRecords] = useState<CuratedCafeRecord[]>([]);
   const [curatedRecordsMode, setCuratedRecordsMode] = useState<"supabase" | "local">("local");
   const [curatedRecordsNote, setCuratedRecordsNote] = useState("Using bundled curated source records while the app loads.");
   const [isLoading, setIsLoading] = useState(false);
-  const autoLocateAttemptedRef = useRef(false);
   const requestSequenceRef = useRef(0);
 
   function beginLocationRequest() {
@@ -128,12 +127,12 @@ function App() {
 
   const topPick = rankedShops[0];
 
-  const resetToDefault = useCallback((status = "Reset to default recommendations.") => {
+  const resetToDefault = useCallback((status = "Use your location or enter a ZIP code/city to begin.") => {
     setLocation(defaultLocation);
     setResultsLocation(defaultLocation);
     setLocationInput("");
     setSearchMode("current");
-    setShops(mockCoffeeShops);
+    setShops([]);
     setResultsStatus("fallback");
     setGeoStatus(status);
     setIsLoading(false);
@@ -177,22 +176,36 @@ function App() {
       (position) => {
         if (!isLatestLocationRequest(requestId)) return;
 
-        const userLocation: SearchLocation = {
-          label: "Your current location",
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          source: "geolocation"
-        };
-
-        const nearestPrototype = getNearestPrototypeMarket(
-          position.coords.latitude,
-          position.coords.longitude
-        );
-
-        setLocation(userLocation);
-        setLocationInput("");
-
         void (async () => {
+          let locationLabel = "Your current location";
+
+          try {
+            const reversedLabel = await reverseGeocodeLocation(
+              position.coords.latitude,
+              position.coords.longitude
+            );
+            if (reversedLabel) {
+              locationLabel = reversedLabel;
+            }
+          } catch {
+            // Keep the generic label when reverse geocoding is unavailable.
+          }
+
+          const userLocation: SearchLocation = {
+            label: locationLabel,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            source: "geolocation"
+          };
+
+          const nearestPrototype = getNearestPrototypeMarket(
+            position.coords.latitude,
+            position.coords.longitude
+          );
+
+          setLocation(userLocation);
+          setLocationInput("");
+
           try {
             const liveShops = await fetchNearbyCoffeeShops(userLocation);
             if (!isLatestLocationRequest(requestId)) return;
@@ -201,7 +214,7 @@ function App() {
               setResultsLocation(userLocation);
               setShops(liveShops);
               setResultsStatus("live");
-              setGeoStatus(`Using your real location and found ${liveShops.length} nearby coffee places.`);
+              setGeoStatus(`Using ${locationLabel} and found ${liveShops.length} nearby coffee places.`);
               return;
             }
 
@@ -209,13 +222,13 @@ function App() {
             setResultsLocation(nearestPrototype);
             setShops(mockCoffeeShops);
             setResultsStatus("fallback");
-            setGeoStatus(`Your real location was detected, but live nearby lookup returned no cafes. Showing prototype data centered near ${nearestPrototype.label} instead.`);
+            setGeoStatus(`${locationLabel} was detected, but live nearby lookup returned no cafes. Showing fallback recommendations centered near ${nearestPrototype.label} instead.`);
           } catch (error) {
             if (!isLatestLocationRequest(requestId)) return;
             setResultsLocation(nearestPrototype);
             setShops(mockCoffeeShops);
             setResultsStatus("fallback");
-            setGeoStatus(`Your real location was detected, but nearby coffee lookup failed. Showing prototype recommendations centered near ${nearestPrototype.label} instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
+            setGeoStatus(`${locationLabel} was detected, but nearby coffee lookup failed. Showing fallback recommendations centered near ${nearestPrototype.label} instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
           } finally {
             if (isLatestLocationRequest(requestId)) {
               setIsLoading(false);
@@ -272,12 +285,6 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(SAVED_CITIES_STORAGE_KEY, JSON.stringify(savedCities));
   }, [savedCities]);
-
-  useEffect(() => {
-    if (autoLocateAttemptedRef.current) return;
-    autoLocateAttemptedRef.current = true;
-    void handleUseMyLocation();
-  }, [handleUseMyLocation]);
 
   async function handleSearch() {
     const requestId = beginLocationRequest();
@@ -375,7 +382,6 @@ function App() {
 
   function handleReset() {
     resetToDefault();
-    void handleUseMyLocation();
   }
 
   function handleAddSavedCity(cityValue: string) {
@@ -602,20 +608,20 @@ function App() {
         />
       </section>
 
-      <section className="top-pick-panel">
-        <p className="eyebrow">Top recommendation</p>
-        <div className="top-pick-card">
-          <div>
-            <h2>{topPick?.name}</h2>
-            <p>{topPick?.whyRecommended}</p>
+        <section className="top-pick-panel">
+          <p className="eyebrow">Top recommendation</p>
+          <div className="top-pick-card">
+            <div>
+            <h2>{topPick?.name ?? "Choose your location to begin"}</h2>
+            <p>{topPick?.whyRecommended ?? "Select `Use my location` or enter a ZIP code/city to start seeing ranked nearby coffee shops."}</p>
+            </div>
+            <div className="top-pick-stats">
+              <span>{topPick ? `${topPick.specialtyScore} specialty score` : "Coffee-first results appear here"}</span>
+              <span>{topPick ? `${topPick.distanceMiles.toFixed(1)} mi away` : "Use your location or search by ZIP/city"}</span>
+              <span>{topPick ? topPick.supportLabels.join(" · ") : "The app no longer starts in New York by default"}</span>
+            </div>
           </div>
-          <div className="top-pick-stats">
-            <span>{topPick?.specialtyScore} specialty score</span>
-            <span>{topPick?.distanceMiles.toFixed(1)} mi away</span>
-            <span>{topPick?.supportLabels.join(" · ")}</span>
-          </div>
-        </div>
-      </section>
+        </section>
 
       <section id="results" className="results-shell">
         <div className="section-heading results-header">

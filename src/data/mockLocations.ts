@@ -148,8 +148,8 @@ export function findMockLocation(query: string): SearchLocation | null {
 }
 
 export const defaultLocation: SearchLocation = {
-  label: "SoHo, New York, NY",
-  latitude: 40.7233,
-  longitude: -74.003,
+  label: "Choose your location to begin",
+  latitude: 39.8283,
+  longitude: -98.5795,
   source: "default"
 };

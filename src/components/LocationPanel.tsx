@@ -152,9 +152,9 @@ export function LocationPanel({
 
         {searchMode === "current" ? (
           <div className="current-location-panel">
-            <p className="current-location-copy">The app uses your current location automatically. You can refresh it any time below.</p>
+            <p className="current-location-copy">Choose how you want to start: use your location, or switch to ZIP code/city search above.</p>
             <button className="action-button primary wide" onClick={onUseMyLocation} disabled={isLoading}>
-              {isLoading ? "Finding coffee..." : "Refresh my location"}
+              {isLoading ? "Finding coffee..." : "Use my location"}
             </button>
           </div>
         ) : (
