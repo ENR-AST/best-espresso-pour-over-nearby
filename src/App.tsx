@@ -516,6 +516,7 @@ function App() {
     const discoveredShop: CoffeeShop = {
       id: `discovered-${Date.now()}`,
       name: draft.name.trim(),
+      discoveredByYou: true,
       neighborhood: draft.neighborhood.trim() || "Discovered nearby",
       city: draft.city.trim() || selectedShopWithReview?.city || resultsLocation.label,
       zipCode: draft.zipCode.trim(),

@@ -12,12 +12,20 @@ function buildAddress(shop: RankedCoffeeShop): string {
 
 export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
   const addressLine = buildAddress(shop);
+  const isDiscoveredShop = shop.discoveredByYou || shop.id.startsWith("discovered-");
 
   return (
     <article className="cafe-card">
       <div className="cafe-header">
         <div>
-          <h3>{shop.name}</h3>
+          <h3 className="cafe-title-row">
+            <span>{shop.name}</span>
+            {isDiscoveredShop ? (
+              <span className="discovered-badge" aria-label="Discovered by you" title="Discovered by you">
+                ✓
+              </span>
+            ) : null}
+          </h3>
           <p className="address-line">{addressLine}</p>
         </div>
         <div className="score-pill" aria-label={`Grade ${shop.specialtyScore}`}>

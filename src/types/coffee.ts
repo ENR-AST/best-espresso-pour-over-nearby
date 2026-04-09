@@ -73,6 +73,7 @@ export interface CuratedCafeRecord {
 export interface CoffeeShop {
   id: string;
   name: string;
+  discoveredByYou?: boolean;
   neighborhood: string;
   city: string;
   zipCode: string;
