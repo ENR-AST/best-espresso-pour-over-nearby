@@ -57,6 +57,26 @@ function normalizeText(value: string | undefined): string {
   return (value ?? "").trim();
 }
 
+function splitLocationLabel(label: string) {
+  const parts = label.split(",").map((part) => part.trim()).filter(Boolean);
+  return {
+    city: parts[0] ?? "",
+    state: parts[1] ?? ""
+  };
+}
+
+function buildStreetAddress(tags: Record<string, string>): string {
+  const houseNumber = normalizeText(tags["addr:housenumber"]);
+  const street = normalizeText(tags["addr:street"]);
+  const streetOnly = normalizeText(tags.street);
+
+  if (houseNumber && street) {
+    return `${houseNumber} ${street}`;
+  }
+
+  return street || streetOnly;
+}
+
 export function isExcludedLargeChain(name: string): boolean {
   return EXCLUDED_CHAIN_PATTERNS.some((pattern) => pattern.test(name));
 }
@@ -154,12 +174,26 @@ function toCoffeeShop(element: OverpassElement, location: SearchLocation): Coffe
   const signalNotes = inferSignalNotes(textBlob);
   const penaltySignals = inferPenaltySignals(textBlob);
   const adjustments = getCoffeeEvidenceAdjustments(signalNotes, penaltySignals);
+  const locationParts = splitLocationLabel(location.label);
+  const streetAddress = buildStreetAddress(tags);
+  const city =
+    normalizeText(tags["addr:city"]) ||
+    normalizeText(tags["addr:town"]) ||
+    normalizeText(tags["addr:village"]) ||
+    locationParts.city ||
+    location.label;
+  const state =
+    normalizeText(tags["addr:state"]) ||
+    normalizeText(tags["addr:state_code"]) ||
+    locationParts.state;
 
   return {
     id: `live-${element.type}-${element.id}`,
     name,
+    streetAddress,
     neighborhood: normalizeText(tags.neighbourhood) || normalizeText(tags.suburb) || "Nearby",
-    city: normalizeText(tags["addr:city"]) || location.label,
+    city,
+    state,
     zipCode: normalizeText(tags["addr:postcode"]),
     latitude,
     longitude,

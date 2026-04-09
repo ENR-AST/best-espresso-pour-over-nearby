@@ -26,7 +26,9 @@ export interface PersonalReview {
 
 export interface DiscoveredShopDraft {
   name: string;
+  streetAddress?: string;
   city: string;
+  state?: string;
   neighborhood: string;
   zipCode: string;
   website?: string;
@@ -76,8 +78,10 @@ export interface CoffeeShop {
   id: string;
   name: string;
   discoveredByYou?: boolean;
+  streetAddress?: string;
   neighborhood: string;
   city: string;
+  state?: string;
   zipCode: string;
   latitude: number;
   longitude: number;

@@ -6,8 +6,22 @@ interface CafeCardProps {
 }
 
 function buildAddress(shop: RankedCoffeeShop): string {
-  const parts = [shop.neighborhood, shop.city, shop.zipCode].filter(Boolean);
-  return parts.join(", ");
+  const parts = [shop.streetAddress, shop.city, shop.state].filter(Boolean);
+  if (parts.length > 0) {
+    return parts.join(", ");
+  }
+
+  const fallbackParts = [shop.neighborhood, shop.city, shop.zipCode].filter(Boolean);
+  if (fallbackParts.length > 0) {
+    return fallbackParts.join(", ");
+  }
+
+  const finalFallback = [shop.city, shop.state].filter(Boolean);
+  if (finalFallback.length > 0) {
+    return finalFallback.join(", ");
+  }
+
+  return "Address unavailable";
 }
 
 export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
