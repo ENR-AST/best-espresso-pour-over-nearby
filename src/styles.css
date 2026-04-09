@@ -407,6 +407,23 @@ a { color: inherit; text-decoration: none; }
 .review-save-button {
   margin-top: 0.85rem;
 }
+.discovered-shop-panel {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(93, 58, 35, 0.08);
+}
+.discovered-shop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.discovered-grid {
+  margin-top: 0.8rem;
+}
+.review-grid-wide {
+  grid-column: 1 / -1;
+}
 .modal-backdrop {
   position: fixed;
   inset: 0;

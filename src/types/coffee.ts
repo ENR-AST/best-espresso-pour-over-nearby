@@ -23,6 +23,23 @@ export interface PersonalReview {
   updatedAt: string;
 }
 
+export interface DiscoveredShopDraft {
+  name: string;
+  city: string;
+  neighborhood: string;
+  zipCode: string;
+  website?: string;
+  tags: Tag[];
+  espressoScore: number;
+  pourOverScore: number;
+  beanTransparencyScore: number;
+  menuFocusScore: number;
+  serviceScore: number;
+  ambianceScore: number;
+  wouldReturn: boolean;
+  notes: string;
+}
+
 export interface SourceEvidence {
   source: string;
   category: SourceCategory;

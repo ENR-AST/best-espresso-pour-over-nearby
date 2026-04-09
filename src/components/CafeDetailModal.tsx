@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import type { PersonalReview, RankedCoffeeShop } from "../types/coffee";
+import type { DiscoveredShopDraft, PersonalReview, RankedCoffeeShop, Tag } from "../types/coffee";
 
 interface CafeDetailModalProps {
   shop: RankedCoffeeShop | null;
   personalReview?: PersonalReview;
   onSavePersonalReview: (review: PersonalReview) => void;
+  onAddDiscoveredShop: (draft: DiscoveredShopDraft) => void;
   onClose: () => void;
 }
 
@@ -19,6 +20,15 @@ interface ReviewFormState {
   notes: string;
 }
 
+interface DiscoveredFormState extends ReviewFormState {
+  name: string;
+  city: string;
+  neighborhood: string;
+  zipCode: string;
+  website: string;
+  tags: Tag[];
+}
+
 const defaultForm: ReviewFormState = {
   espressoScore: "8",
   pourOverScore: "8",
@@ -30,24 +40,46 @@ const defaultForm: ReviewFormState = {
   notes: ""
 };
 
-export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, onClose }: CafeDetailModalProps) {
+const defaultDiscoveredTags: Tag[] = ["espresso", "specialty"];
+
+export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, onAddDiscoveredShop, onClose }: CafeDetailModalProps) {
   const [form, setForm] = useState<ReviewFormState>(defaultForm);
+  const [showDiscoveredForm, setShowDiscoveredForm] = useState(false);
+  const [discoveredForm, setDiscoveredForm] = useState<DiscoveredFormState>({
+    name: "",
+    city: "",
+    neighborhood: "",
+    zipCode: "",
+    website: "",
+    tags: defaultDiscoveredTags,
+    ...defaultForm
+  });
 
   useEffect(() => {
     if (!personalReview) {
       setForm(defaultForm);
-      return;
+    } else {
+      setForm({
+        espressoScore: String(personalReview.espressoScore),
+        pourOverScore: String(personalReview.pourOverScore),
+        beanTransparencyScore: String(personalReview.beanTransparencyScore),
+        menuFocusScore: String(personalReview.menuFocusScore),
+        serviceScore: String(personalReview.serviceScore),
+        ambianceScore: String(personalReview.ambianceScore),
+        wouldReturn: personalReview.wouldReturn,
+        notes: personalReview.notes
+      });
     }
 
-    setForm({
-      espressoScore: String(personalReview.espressoScore),
-      pourOverScore: String(personalReview.pourOverScore),
-      beanTransparencyScore: String(personalReview.beanTransparencyScore),
-      menuFocusScore: String(personalReview.menuFocusScore),
-      serviceScore: String(personalReview.serviceScore),
-      ambianceScore: String(personalReview.ambianceScore),
-      wouldReturn: personalReview.wouldReturn,
-      notes: personalReview.notes
+    setShowDiscoveredForm(false);
+    setDiscoveredForm({
+      name: "",
+      city: shop?.city ?? "",
+      neighborhood: shop?.neighborhood ?? "",
+      zipCode: shop?.zipCode ?? "",
+      website: "",
+      tags: defaultDiscoveredTags,
+      ...defaultForm
     });
   }, [personalReview, shop?.id]);
 
@@ -72,6 +104,38 @@ export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, on
     };
 
     onSavePersonalReview(review);
+  }
+
+  function toggleDiscoveredTag(tag: Tag) {
+    setDiscoveredForm((current) => ({
+      ...current,
+      tags: current.tags.includes(tag)
+        ? current.tags.filter((item) => item !== tag)
+        : [...current.tags, tag]
+    }));
+  }
+
+  function saveDiscoveredShop() {
+    if (!discoveredForm.name.trim()) {
+      return;
+    }
+
+    onAddDiscoveredShop({
+      name: discoveredForm.name.trim(),
+      city: discoveredForm.city.trim(),
+      neighborhood: discoveredForm.neighborhood.trim(),
+      zipCode: discoveredForm.zipCode.trim(),
+      website: discoveredForm.website.trim(),
+      tags: discoveredForm.tags.length > 0 ? discoveredForm.tags : defaultDiscoveredTags,
+      espressoScore: Number(discoveredForm.espressoScore),
+      pourOverScore: Number(discoveredForm.pourOverScore),
+      beanTransparencyScore: Number(discoveredForm.beanTransparencyScore),
+      menuFocusScore: Number(discoveredForm.menuFocusScore),
+      serviceScore: Number(discoveredForm.serviceScore),
+      ambianceScore: Number(discoveredForm.ambianceScore),
+      wouldReturn: discoveredForm.wouldReturn,
+      notes: discoveredForm.notes.trim()
+    });
   }
 
   return (
@@ -164,13 +228,103 @@ export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, on
             <button className="cta-secondary review-save-button" type="button" onClick={saveReview}>
               Save my grading
             </button>
+
+            <div className="discovered-shop-panel">
+              <div className="discovered-shop-header">
+                <div>
+                  <h3>Add a coffee shop you discovered</h3>
+                  <p className="admin-status">Use this if you found a place that is missing from the current list.</p>
+                </div>
+                <button className="action-button" type="button" onClick={() => setShowDiscoveredForm((current) => !current)}>
+                  {showDiscoveredForm ? "Hide form" : "Add discovered shop"}
+                </button>
+              </div>
+
+              {showDiscoveredForm ? (
+                <div className="review-grid discovered-grid">
+                  <label>
+                    Shop name
+                    <input value={discoveredForm.name} onChange={(event) => setDiscoveredForm((current) => ({ ...current, name: event.target.value }))} />
+                  </label>
+                  <label>
+                    City
+                    <input value={discoveredForm.city} onChange={(event) => setDiscoveredForm((current) => ({ ...current, city: event.target.value }))} />
+                  </label>
+                  <label>
+                    Neighborhood
+                    <input value={discoveredForm.neighborhood} onChange={(event) => setDiscoveredForm((current) => ({ ...current, neighborhood: event.target.value }))} />
+                  </label>
+                  <label>
+                    ZIP code
+                    <input value={discoveredForm.zipCode} onChange={(event) => setDiscoveredForm((current) => ({ ...current, zipCode: event.target.value }))} />
+                  </label>
+                  <label className="review-grid-wide">
+                    Website
+                    <input value={discoveredForm.website} onChange={(event) => setDiscoveredForm((current) => ({ ...current, website: event.target.value }))} placeholder="https://..." />
+                  </label>
+                  <div className="review-grid-wide">
+                    <span className="admin-label">Tags</span>
+                    <div className="admin-chip-row">
+                      {(["espresso", "pour-over", "roaster", "specialty"] as Tag[]).map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          className={discoveredForm.tags.includes(tag) ? "filter-chip active" : "filter-chip"}
+                          onClick={() => toggleDiscoveredTag(tag)}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <label>
+                    Espresso
+                    <input type="number" min="1" max="10" value={discoveredForm.espressoScore} onChange={(event) => setDiscoveredForm((current) => ({ ...current, espressoScore: event.target.value }))} />
+                  </label>
+                  <label>
+                    Pour-over
+                    <input type="number" min="1" max="10" value={discoveredForm.pourOverScore} onChange={(event) => setDiscoveredForm((current) => ({ ...current, pourOverScore: event.target.value }))} />
+                  </label>
+                  <label>
+                    Bean transparency
+                    <input type="number" min="1" max="10" value={discoveredForm.beanTransparencyScore} onChange={(event) => setDiscoveredForm((current) => ({ ...current, beanTransparencyScore: event.target.value }))} />
+                  </label>
+                  <label>
+                    Menu focus
+                    <input type="number" min="1" max="10" value={discoveredForm.menuFocusScore} onChange={(event) => setDiscoveredForm((current) => ({ ...current, menuFocusScore: event.target.value }))} />
+                  </label>
+                  <label>
+                    Service
+                    <input type="number" min="1" max="10" value={discoveredForm.serviceScore} onChange={(event) => setDiscoveredForm((current) => ({ ...current, serviceScore: event.target.value }))} />
+                  </label>
+                  <label>
+                    Ambiance
+                    <input type="number" min="1" max="10" value={discoveredForm.ambianceScore} onChange={(event) => setDiscoveredForm((current) => ({ ...current, ambianceScore: event.target.value }))} />
+                  </label>
+                  <label className="review-toggle review-grid-wide">
+                    <input type="checkbox" checked={discoveredForm.wouldReturn} onChange={(event) => setDiscoveredForm((current) => ({ ...current, wouldReturn: event.target.checked }))} />
+                    I would return
+                  </label>
+                  <textarea
+                    className="review-notes review-grid-wide"
+                    rows={4}
+                    value={discoveredForm.notes}
+                    onChange={(event) => setDiscoveredForm((current) => ({ ...current, notes: event.target.value }))}
+                    placeholder="Your first notes about this discovered shop"
+                  />
+                  <button className="cta-secondary review-save-button review-grid-wide" type="button" onClick={saveDiscoveredShop}>
+                    Save discovered shop
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </section>
         </div>
 
         <section>
           <h3>Evidence and sources</h3>
           <div className="evidence-list">
-            {shop.sources.map((source) => (
+            {activeShop.sources.map((source) => (
               <a
                 key={`${activeShop.id}-${source.source}-${source.note}`}
                 className="evidence-card"
