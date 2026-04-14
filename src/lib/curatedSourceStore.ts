@@ -26,13 +26,23 @@ interface CuratedMentionRow {
   }[] | null;
   curated_cafes: {
     name: string;
+    street_address: string | null;
     city: string | null;
+    state: string | null;
     neighborhood: string | null;
+    zip_code: string | null;
+    latitude: number | null;
+    longitude: number | null;
     tags: Tag[] | null;
   } | {
     name: string;
+    street_address: string | null;
     city: string | null;
+    state: string | null;
     neighborhood: string | null;
+    zip_code: string | null;
+    latitude: number | null;
+    longitude: number | null;
     tags: Tag[] | null;
   }[] | null;
 }
@@ -50,8 +60,13 @@ function toCuratedRecord(row: CuratedMentionRow): CuratedCafeRecord | null {
     sourceName: source.name,
     category: source.category,
     cafeName: cafe.name,
+    streetAddress: cafe.street_address ?? undefined,
     city: cafe.city ?? undefined,
+    state: cafe.state ?? undefined,
     neighborhood: cafe.neighborhood ?? undefined,
+    zipCode: cafe.zip_code ?? undefined,
+    latitude: cafe.latitude ?? undefined,
+    longitude: cafe.longitude ?? undefined,
     confidence: row.confidence,
     tags: cafe.tags ?? ["specialty"],
     evidenceNote: row.evidence_note,
@@ -105,8 +120,13 @@ export async function loadCuratedCafeRecords(): Promise<{
       ),
       curated_cafes (
         name,
+        street_address,
         city,
+        state,
         neighborhood,
+        zip_code,
+        latitude,
+        longitude,
         tags
       )
     `);

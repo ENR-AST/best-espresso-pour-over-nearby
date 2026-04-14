@@ -287,6 +287,34 @@ export async function geocodeLocation(query: string, mode: SearchMode): Promise<
   };
 }
 
+export async function geocodeAddress(query: string): Promise<SearchLocation | null> {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("q", trimmed);
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" }
+  });
+
+  if (!response.ok) throw new Error(`Address lookup failed with status ${response.status}`);
+
+  const data = (await response.json()) as NominatimResult[];
+  const first = data[0];
+  if (!first) return null;
+
+  return {
+    label: first.display_name,
+    latitude: safeNumber(first.lat, 0),
+    longitude: safeNumber(first.lon, 0),
+    source: "manual"
+  };
+}
+
 export async function reverseGeocodeLocation(latitude: number, longitude: number): Promise<string | null> {
   const url = new URL("https://nominatim.openstreetmap.org/reverse");
   url.searchParams.set("format", "jsonv2");

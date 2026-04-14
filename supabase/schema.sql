@@ -9,8 +9,13 @@ create table if not exists curated_cafes (
   id bigint generated always as identity primary key,
   slug text not null unique,
   name text not null,
+  street_address text,
   city text,
+  state text,
   neighborhood text,
+  zip_code text,
+  latitude double precision,
+  longitude double precision,
   tags text[] not null default array['specialty']::text[]
 );
 

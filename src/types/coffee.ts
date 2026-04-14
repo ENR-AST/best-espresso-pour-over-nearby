@@ -57,8 +57,13 @@ export interface CuratedCafeRecord {
   sourceName: string;
   category: SourceCategory;
   cafeName: string;
+  streetAddress?: string;
   city?: string;
+  state?: string;
   neighborhood?: string;
+  zipCode?: string;
+  latitude?: number;
+  longitude?: number;
   confidence: number;
   tags: Tag[];
   evidenceNote: string;

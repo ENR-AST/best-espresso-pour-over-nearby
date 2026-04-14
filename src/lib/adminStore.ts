@@ -1,4 +1,5 @@
 import type { CuratedCafeRecord, SourceCategory, Tag } from "../types/coffee";
+import { geocodeAddress } from "./liveCoffee";
 import { createSupabaseClient } from "./supabaseClient";
 
 export interface AdminSourceRow {
@@ -12,15 +13,23 @@ export interface AdminCafeRow {
   id: number;
   slug: string;
   name: string;
+  street_address: string | null;
   city: string | null;
+  state: string | null;
   neighborhood: string | null;
+  zip_code: string | null;
+  latitude: number | null;
+  longitude: number | null;
   tags: Tag[];
 }
 
 export interface AdminPersonalCafeInput {
   name: string;
+  streetAddress: string;
   city?: string;
+  state?: string;
   neighborhood?: string;
+  zipCode?: string;
   tags: Tag[];
   overallScore: number;
 }
@@ -103,7 +112,7 @@ export async function listCuratedCafes(): Promise<AdminCafeRow[]> {
   const supabase = requireSupabase();
   const { data, error } = await supabase
     .from("curated_cafes")
-    .select("id, slug, name, city, neighborhood, tags")
+    .select("id, slug, name, street_address, city, state, neighborhood, zip_code, latitude, longitude, tags")
     .order("name");
 
   if (error) {
@@ -134,20 +143,30 @@ export async function createCuratedSource(input: AdminSourceRow): Promise<void> 
 
 export async function createCuratedCafe(input: {
   name: string;
+  streetAddress?: string;
   city?: string;
+  state?: string;
   neighborhood?: string;
+  zipCode?: string;
+  latitude?: number;
+  longitude?: number;
   tags: Tag[];
 }): Promise<AdminCafeRow> {
   const supabase = requireSupabase();
-  const slug = slugify([input.name, input.city ?? "", input.neighborhood ?? ""].filter(Boolean).join("-"));
+  const slug = slugify([input.name, input.city ?? "", input.neighborhood ?? "", input.streetAddress ?? ""].filter(Boolean).join("-"));
   const { error } = await supabase
     .from("curated_cafes")
     .upsert(
       {
         slug,
         name: input.name,
+        street_address: input.streetAddress ?? null,
         city: input.city ?? null,
+        state: input.state ?? null,
         neighborhood: input.neighborhood ?? null,
+        zip_code: input.zipCode ?? null,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
         tags: input.tags
       },
       { onConflict: "slug" }
@@ -159,7 +178,7 @@ export async function createCuratedCafe(input: {
 
   const { data: selectedRow, error: selectError } = await supabase
     .from("curated_cafes")
-    .select("id, slug, name, city, neighborhood, tags")
+    .select("id, slug, name, street_address, city, state, neighborhood, zip_code, latitude, longitude, tags")
     .eq("slug", slug)
     .single();
 
@@ -177,15 +196,38 @@ export async function createPersonalCafe(input: AdminPersonalCafeInput): Promise
     throw new Error("Coffee shop name is required.");
   }
 
+  const trimmedStreetAddress = input.streetAddress.trim();
+  if (!trimmedStreetAddress) {
+    throw new Error("Street address is required.");
+  }
+
   const trimmedCity = input.city?.trim();
   if (!trimmedCity) {
     throw new Error("City is required.");
   }
 
+  const trimmedState = input.state?.trim();
+  if (!trimmedState) {
+    throw new Error("State is required.");
+  }
+
+  const trimmedZipCode = input.zipCode?.trim();
+  if (!trimmedZipCode) {
+    throw new Error("ZIP code is required.");
+  }
+
+  const geocodeQuery = [trimmedStreetAddress, trimmedCity, trimmedState, trimmedZipCode].filter(Boolean).join(", ");
+  const geocoded = await geocodeAddress(geocodeQuery);
+
   const cafe = await createCuratedCafe({
     name: trimmedName,
+    streetAddress: trimmedStreetAddress,
     city: trimmedCity,
+    state: trimmedState,
     neighborhood: input.neighborhood?.trim() || undefined,
+    zipCode: trimmedZipCode,
+    latitude: geocoded?.latitude,
+    longitude: geocoded?.longitude,
     tags: input.tags
   });
 
@@ -286,7 +328,12 @@ export function convertAdminRowsToCuratedRecords(
       neighborhood: cafe.neighborhood ?? undefined,
       confidence: mention.confidence,
       tags: cafe.tags,
+      streetAddress: cafe.street_address ?? undefined,
       evidenceNote: mention.evidence_note,
+      state: cafe.state ?? undefined,
+      zipCode: cafe.zip_code ?? undefined,
+      latitude: cafe.latitude ?? undefined,
+      longitude: cafe.longitude ?? undefined,
       sourceUrl: mention.source_url,
       espressoBoost: mention.espresso_boost ?? undefined,
       pourOverBoost: mention.pour_over_boost ?? undefined,
