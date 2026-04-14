@@ -23,6 +23,10 @@ export interface AdminCafeRow {
   tags: Tag[];
 }
 
+export interface AdminPersonalCafeRow extends AdminCafeRow {
+  owner_rank: number | null;
+}
+
 export interface AdminPersonalCafeInput {
   name: string;
   streetAddress: string;
@@ -120,6 +124,65 @@ export async function listCuratedCafes(): Promise<AdminCafeRow[]> {
   }
 
   return (data ?? []) as AdminCafeRow[];
+}
+
+function extractOwnerRank(signalNotes: string[] | null): number | null {
+  const rankNote = (signalNotes ?? []).find((note) => /your overall rank is/i.test(note));
+  if (!rankNote) return null;
+
+  const match100 = rankNote.match(/(\d+(?:\.\d+)?)\/100/);
+  if (match100) {
+    const parsed = Number(match100[1]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  const match10 = rankNote.match(/(\d+(?:\.\d+)?)\/10/);
+  if (match10) {
+    const parsed = Number(match10[1]);
+    return Number.isFinite(parsed) ? parsed * 10 : null;
+  }
+
+  return null;
+}
+
+export async function listPersonalCafes(): Promise<AdminPersonalCafeRow[]> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from("curated_mentions")
+    .select(`
+      signal_notes,
+      curated_cafes (
+        id,
+        slug,
+        name,
+        street_address,
+        city,
+        state,
+        neighborhood,
+        zip_code,
+        latitude,
+        longitude,
+        tags
+      )
+    `)
+    .eq("source_id", "your-list");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? [])
+    .map((row) => {
+      const cafe = Array.isArray(row.curated_cafes) ? row.curated_cafes[0] : row.curated_cafes;
+      if (!cafe) return null;
+
+      return {
+        ...(cafe as AdminCafeRow),
+        owner_rank: extractOwnerRank((row as { signal_notes: string[] | null }).signal_notes)
+      } satisfies AdminPersonalCafeRow;
+    })
+    .filter((row): row is AdminPersonalCafeRow => row !== null)
+    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 export async function createCuratedSource(input: AdminSourceRow): Promise<void> {
@@ -258,6 +321,85 @@ export async function createPersonalCafe(input: AdminPersonalCafeInput): Promise
     avoidNotes: [],
     penaltySignals: []
   });
+}
+
+export async function updatePersonalCafe(
+  cafeId: number,
+  input: AdminPersonalCafeInput
+): Promise<void> {
+  const supabase = requireSupabase();
+  const trimmedName = input.name.trim();
+  if (!trimmedName) {
+    throw new Error("Coffee shop name is required.");
+  }
+
+  const trimmedStreetAddress = input.streetAddress.trim();
+  if (!trimmedStreetAddress) {
+    throw new Error("Street address is required.");
+  }
+
+  const trimmedCity = input.city?.trim();
+  if (!trimmedCity) {
+    throw new Error("City is required.");
+  }
+
+  const trimmedState = input.state?.trim();
+  if (!trimmedState) {
+    throw new Error("State is required.");
+  }
+
+  const trimmedZipCode = input.zipCode?.trim();
+  if (!trimmedZipCode) {
+    throw new Error("ZIP code is required.");
+  }
+
+  const geocodeQuery = [trimmedStreetAddress, trimmedCity, trimmedState, trimmedZipCode].filter(Boolean).join(", ");
+  const geocoded = await geocodeAddress(geocodeQuery);
+  const slug = slugify([trimmedName, trimmedCity, input.neighborhood?.trim() ?? "", trimmedStreetAddress].filter(Boolean).join("-"));
+  const { error: cafeError } = await supabase
+    .from("curated_cafes")
+    .update({
+      slug,
+      name: trimmedName,
+      street_address: trimmedStreetAddress,
+      city: trimmedCity,
+      state: trimmedState,
+      neighborhood: input.neighborhood?.trim() || null,
+      zip_code: trimmedZipCode,
+      latitude: geocoded?.latitude ?? null,
+      longitude: geocoded?.longitude ?? null,
+      tags: input.tags
+    })
+    .eq("id", cafeId);
+
+  if (cafeError) {
+    throw new Error(cafeError.message);
+  }
+
+  const score = Math.max(1, Math.min(100, input.overallScore));
+  const boost = Number((score / 100).toFixed(2));
+  const { error: mentionError } = await supabase
+    .from("curated_mentions")
+    .update({
+      confidence: 0.95,
+      evidence_note: "Added by you from the admin editor as a personally selected coffee shop.",
+      source_url: import.meta.env.VITE_ADMIN_REDIRECT_URL || "https://best-espresso-pour-over-nearby.vercel.app",
+      espresso_boost: boost,
+      pour_over_boost: boost,
+      roaster_boost: input.tags.includes("roaster") ? boost : Math.max(0.2, Number((boost * 0.5).toFixed(2))),
+      credibility_boost: boost,
+      coffee_focus_boost: boost,
+      transparency_boost: boost,
+      signal_notes: [`your overall rank is ${score}/100`],
+      avoid_notes: [],
+      penalty_signals: []
+    })
+    .eq("source_id", "your-list")
+    .eq("cafe_id", cafeId);
+
+  if (mentionError) {
+    throw new Error(mentionError.message);
+  }
 }
 
 export async function createCuratedMention(input: AdminMentionInput): Promise<void> {

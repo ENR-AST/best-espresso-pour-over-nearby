@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   createPersonalCafe,
-  listCuratedCafes,
+  listPersonalCafes,
   sendAdminMagicLink,
   signOutAdmin,
-  type AdminCafeRow
+  updatePersonalCafe,
+  type AdminPersonalCafeRow
 } from "../lib/adminStore";
 import { getSupabaseSession, onSupabaseAuthStateChange } from "../lib/supabaseClient";
 import type { Tag } from "../types/coffee";
@@ -25,7 +26,7 @@ interface AdminPanelProps {
 }
 
 export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
-  const [cafes, setCafes] = useState<AdminCafeRow[]>([]);
+  const [cafes, setCafes] = useState<AdminPersonalCafeRow[]>([]);
   const [status, setStatus] = useState("Connect Supabase and use this panel to add missing coffee shops.");
   const [isBusy, setIsBusy] = useState(false);
   const [passcodeInput, setPasscodeInput] = useState("");
@@ -45,6 +46,7 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
   const canEdit = useEmailAuth ? isAuthorizedEmail : Boolean(configuredPasscode && isUnlocked);
 
   const [cafeForm, setCafeForm] = useState({
+    id: null as number | null,
     name: "",
     streetAddress: "",
     city: "",
@@ -56,7 +58,7 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
   });
 
   async function refreshAdminData() {
-    const loadedCafes = await listCuratedCafes();
+    const loadedCafes = await listPersonalCafes();
     setCafes(loadedCafes);
   }
 
@@ -140,7 +142,7 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
     event.preventDefault();
     setIsBusy(true);
     try {
-      await createPersonalCafe({
+      const payload = {
         name: cafeForm.name.trim(),
         streetAddress: cafeForm.streetAddress.trim(),
         city: cafeForm.city.trim() || undefined,
@@ -149,16 +151,42 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
         zipCode: cafeForm.zipCode.trim() || undefined,
         overallScore: Number(cafeForm.overallScore),
         tags: cafeForm.tags
-      });
+      };
+
+      if (cafeForm.id !== null) {
+        await updatePersonalCafe(cafeForm.id, payload);
+      } else {
+        await createPersonalCafe(payload);
+      }
       await refreshAdminData();
       await onSaved();
-      setCafeForm({ name: "", streetAddress: "", city: "", state: "", neighborhood: "", zipCode: "", overallScore: "80", tags: ["specialty"] });
-      setStatus("Coffee shop saved and added to Your list.");
+      setCafeForm({ id: null, name: "", streetAddress: "", city: "", state: "", neighborhood: "", zipCode: "", overallScore: "80", tags: ["specialty"] });
+      setStatus(cafeForm.id !== null ? "Coffee shop updated." : "Coffee shop saved and added to Your list.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not save cafe.");
     } finally {
       setIsBusy(false);
     }
+  }
+
+  function handleEditCafe(cafe: AdminPersonalCafeRow) {
+    setCafeForm({
+      id: cafe.id,
+      name: cafe.name,
+      streetAddress: cafe.street_address ?? "",
+      city: cafe.city ?? "",
+      state: cafe.state ?? "",
+      neighborhood: cafe.neighborhood ?? "",
+      zipCode: cafe.zip_code ?? "",
+      overallScore: String(cafe.owner_rank ?? 80),
+      tags: cafe.tags?.length ? cafe.tags : ["specialty"]
+    });
+    setStatus(`Editing ${cafe.name}. Update the fields and save again.`);
+  }
+
+  function handleCancelEdit() {
+    setCafeForm({ id: null, name: "", streetAddress: "", city: "", state: "", neighborhood: "", zipCode: "", overallScore: "80", tags: ["specialty"] });
+    setStatus("Edit cancelled.");
   }
 
   async function handleSendMagicLink() {
@@ -236,7 +264,7 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
 
             <div className="admin-grid">
               <form className="admin-card admin-card-wide" onSubmit={handleCreateCafe}>
-                <h3>Add Coffee</h3>
+                <h3>{cafeForm.id !== null ? "Edit Coffee" : "Add Coffee"}</h3>
                 <p className="admin-status">Use this when the app missed a coffee shop and you want to add it yourself with one admin-only rank from 1 to 100.</p>
                 <input
                   required
@@ -304,8 +332,49 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
                     );
                   })}
                 </div>
-                <button className="cta-secondary" disabled={isBusy} type="submit">Save coffee</button>
+                <div className="admin-actions-row">
+                  <button className="cta-secondary" disabled={isBusy} type="submit">
+                    {cafeForm.id !== null ? "Update coffee" : "Save coffee"}
+                  </button>
+                  {cafeForm.id !== null ? (
+                    <button className="action-button reset" disabled={isBusy} type="button" onClick={handleCancelEdit}>
+                      Cancel edit
+                    </button>
+                  ) : null}
+                </div>
               </form>
+
+              <section className="admin-card admin-card-wide">
+                <div className="admin-list-header">
+                  <div>
+                    <h3>My Added Coffees</h3>
+                    <p className="admin-status">Use Edit to update the address, tags, or final rank of any coffee you added.</p>
+                  </div>
+                  <a className="details-link compact-link" href="#admin">
+                    Jump to editor
+                  </a>
+                </div>
+                <div className="admin-list">
+                  {cafes.length === 0 ? (
+                    <p className="admin-status">No admin-added coffees yet.</p>
+                  ) : (
+                    cafes.map((cafe) => (
+                      <article key={cafe.id} className="admin-list-item">
+                        <div>
+                          <strong>{cafe.name}</strong>
+                          <p className="admin-status">
+                            {[cafe.street_address, cafe.city, cafe.state].filter(Boolean).join(", ")}
+                          </p>
+                          <p className="admin-status">Rank: {cafe.owner_rank ?? "Not set"} / 100</p>
+                        </div>
+                        <button className="action-button" type="button" onClick={() => handleEditCafe(cafe)}>
+                          Edit
+                        </button>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
             </div>
           </>
         )
@@ -344,7 +413,7 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
 
           <div className="admin-grid">
             <form className="admin-card admin-card-wide" onSubmit={handleCreateCafe}>
-              <h3>Add Coffee</h3>
+              <h3>{cafeForm.id !== null ? "Edit Coffee" : "Add Coffee"}</h3>
               <p className="admin-status">Use this when the app missed a coffee shop and you want to add it yourself with one admin-only rank from 1 to 100.</p>
               <input required value={cafeForm.name} onChange={(event) => setCafeForm((current) => ({ ...current, name: event.target.value }))} placeholder="Coffee shop name" />
               <input required value={cafeForm.streetAddress} onChange={(event) => setCafeForm((current) => ({ ...current, streetAddress: event.target.value }))} placeholder="Street address" />
@@ -376,8 +445,49 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
                     );
                   })}
               </div>
-              <button className="cta-secondary" disabled={isBusy} type="submit">Save coffee</button>
+              <div className="admin-actions-row">
+                <button className="cta-secondary" disabled={isBusy} type="submit">
+                  {cafeForm.id !== null ? "Update coffee" : "Save coffee"}
+                </button>
+                {cafeForm.id !== null ? (
+                  <button className="action-button reset" disabled={isBusy} type="button" onClick={handleCancelEdit}>
+                    Cancel edit
+                  </button>
+                ) : null}
+              </div>
             </form>
+
+            <section className="admin-card admin-card-wide">
+              <div className="admin-list-header">
+                <div>
+                  <h3>My Added Coffees</h3>
+                  <p className="admin-status">Use Edit to update the address, tags, or final rank of any coffee you added.</p>
+                </div>
+                <a className="details-link compact-link" href="#admin">
+                  Jump to editor
+                </a>
+              </div>
+              <div className="admin-list">
+                {cafes.length === 0 ? (
+                  <p className="admin-status">No admin-added coffees yet.</p>
+                ) : (
+                  cafes.map((cafe) => (
+                    <article key={cafe.id} className="admin-list-item">
+                      <div>
+                        <strong>{cafe.name}</strong>
+                        <p className="admin-status">
+                          {[cafe.street_address, cafe.city, cafe.state].filter(Boolean).join(", ")}
+                        </p>
+                        <p className="admin-status">Rank: {cafe.owner_rank ?? "Not set"} / 100</p>
+                      </div>
+                      <button className="action-button" type="button" onClick={() => handleEditCafe(cafe)}>
+                        Edit
+                      </button>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
           </div>
         </>
       )}
