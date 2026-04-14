@@ -182,7 +182,17 @@ export async function listPersonalCafes(): Promise<AdminPersonalCafeRow[]> {
       } satisfies AdminPersonalCafeRow;
     })
     .filter((row): row is AdminPersonalCafeRow => row !== null)
-    .sort((left, right) => left.name.localeCompare(right.name));
+    .sort((left, right) => {
+      const leftCity = left.city ?? "";
+      const rightCity = right.city ?? "";
+      const cityComparison = leftCity.localeCompare(rightCity);
+
+      if (cityComparison !== 0) {
+        return cityComparison;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
 }
 
 export async function createCuratedSource(input: AdminSourceRow): Promise<void> {
