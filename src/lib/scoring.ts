@@ -109,7 +109,7 @@ export function scoreShop(
   const ownerInfluence = ownerRank !== undefined ? ownerRank * 0.45 : 0;
   const reviewedCafeBonus = ownerRank !== undefined ? 10 : 0;
 
-  const specialtyScore = Math.round(
+  const rawScore =
     sourceSupport +
       espresso +
       pourOver +
@@ -120,8 +120,8 @@ export function scoreShop(
       coffeeFocusBonus +
       ownerInfluence +
       reviewedCafeBonus -
-      penaltyScore
-  );
+      penaltyScore;
+  const specialtyScore = Math.max(0, Math.min(100, Math.round(rawScore)));
 
   return {
     ...shop,
