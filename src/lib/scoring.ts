@@ -7,7 +7,7 @@ import type {
   SourceCategory
 } from "../types/coffee";
 import { getDistanceMiles } from "./geo";
-import { getPersonalReviewScore, type PersonalReviewMap } from "./personalReviews";
+import { type PersonalReviewMap } from "./personalReviews";
 
 const categoryMultiplier: Record<SourceCategory, number> = {
   editorial: 1,
@@ -65,10 +65,29 @@ export function getSupportLabels(shop: CoffeeShop): string[] {
   return Array.from(labels);
 }
 
+function getOwnerRank(shop: CoffeeShop): number | undefined {
+  const rankNote = shop.signalNotes?.find((note) => /your overall rank is/i.test(note));
+  if (!rankNote) {
+    return undefined;
+  }
+
+  const match100 = rankNote.match(/(\d+(?:\.\d+)?)\/100/);
+  if (match100) {
+    const parsed = Number(match100[1]);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  const match10 = rankNote.match(/(\d+(?:\.\d+)?)\/10/);
+  if (match10) {
+    const parsed = Number(match10[1]);
+    return Number.isFinite(parsed) ? parsed * 10 : undefined;
+  }
+  return undefined;
+}
+
 export function scoreShop(
   shop: CoffeeShop,
-  location: SearchLocation,
-  personalReview?: PersonalReview
+  location: SearchLocation
 ): RankedCoffeeShop {
   const distanceMiles = getDistanceMiles(
     location.latitude,
@@ -86,9 +105,9 @@ export function scoreShop(
   const publicRating = shop.publicRating * 0.9;
   const coffeeFocusBonus = getCoffeeFocusBonus(shop);
   const penaltyScore = getPenaltyScore(shop);
-  const personalScore = personalReview ? getPersonalReviewScore(personalReview) : undefined;
-  const personalInfluence = personalScore !== undefined ? personalScore * 7.5 : 0;
-  const reviewedCafeBonus = personalScore !== undefined ? 8 : 0;
+  const ownerRank = getOwnerRank(shop);
+  const ownerInfluence = ownerRank !== undefined ? ownerRank * 0.45 : 0;
+  const reviewedCafeBonus = ownerRank !== undefined ? 10 : 0;
 
   const specialtyScore = Math.round(
     sourceSupport +
@@ -99,7 +118,7 @@ export function scoreShop(
       distance +
       publicRating +
       coffeeFocusBonus +
-      personalInfluence +
+      ownerInfluence +
       reviewedCafeBonus -
       penaltyScore
   );
@@ -109,7 +128,7 @@ export function scoreShop(
     distanceMiles,
     specialtyScore,
     supportLabels: getSupportLabels(shop),
-    personalScore
+    ownerRank
   };
 }
 
@@ -135,10 +154,10 @@ export function rankCoffeeShops(
   shops: CoffeeShop[],
   location: SearchLocation,
   filters: FilterKey[],
-  personalReviews: PersonalReviewMap = {}
+  _personalReviews: PersonalReviewMap = {}
 ): RankedCoffeeShop[] {
   return applyFilters(
-    shops.map((shop) => scoreShop(shop, location, personalReviews[shop.id])),
+    shops.map((shop) => scoreShop(shop, location)),
     filters
   ).sort((a, b) => {
     if (b.specialtyScore !== a.specialtyScore) {

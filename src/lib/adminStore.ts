@@ -238,8 +238,9 @@ export async function createPersonalCafe(input: AdminPersonalCafeInput): Promise
     home_url: null
   });
 
-  const score = Math.max(1, Math.min(10, input.overallScore));
-  const boost = Number((score / 10).toFixed(2));
+  const score = Math.max(1, Math.min(100, input.overallScore));
+  const normalizedScore = score / 10;
+  const boost = Number((score / 100).toFixed(2));
 
   await createCuratedMention({
     sourceId: "your-list",
@@ -253,7 +254,7 @@ export async function createPersonalCafe(input: AdminPersonalCafeInput): Promise
     credibilityBoost: boost,
     coffeeFocusBoost: boost,
     transparencyBoost: boost,
-    signalNotes: [`your overall rank is ${score}/10`],
+    signalNotes: [`your overall rank is ${score}/100`],
     avoidNotes: [],
     penaltySignals: []
   });

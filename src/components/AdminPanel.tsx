@@ -51,7 +51,7 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
     state: "",
     neighborhood: "",
     zipCode: "",
-    overallScore: "8",
+    overallScore: "80",
     tags: ["specialty"] as Tag[]
   });
 
@@ -152,7 +152,7 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
       });
       await refreshAdminData();
       await onSaved();
-      setCafeForm({ name: "", streetAddress: "", city: "", state: "", neighborhood: "", zipCode: "", overallScore: "8", tags: ["specialty"] });
+      setCafeForm({ name: "", streetAddress: "", city: "", state: "", neighborhood: "", zipCode: "", overallScore: "80", tags: ["specialty"] });
       setStatus("Coffee shop saved and added to Your list.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not save cafe.");
@@ -237,7 +237,7 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
             <div className="admin-grid">
               <form className="admin-card admin-card-wide" onSubmit={handleCreateCafe}>
                 <h3>Add Coffee</h3>
-                <p className="admin-status">Use this when the app missed a coffee shop and you want to add it yourself with your own rank.</p>
+                <p className="admin-status">Use this when the app missed a coffee shop and you want to add it yourself with one admin-only rank from 1 to 100.</p>
                 <input
                   required
                   value={cafeForm.name}
@@ -276,10 +276,10 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
                 <input
                   type="number"
                   min="1"
-                  max="10"
+                  max="100"
                   value={cafeForm.overallScore}
                   onChange={(event) => setCafeForm((current) => ({ ...current, overallScore: event.target.value }))}
-                  placeholder="Your rank (1-10)"
+                  placeholder="Your rank (1-100)"
                 />
                 <label className="admin-label">Tags</label>
                 <div className="admin-chip-row">
@@ -345,14 +345,14 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
           <div className="admin-grid">
             <form className="admin-card admin-card-wide" onSubmit={handleCreateCafe}>
               <h3>Add Coffee</h3>
-              <p className="admin-status">Use this when the app missed a coffee shop and you want to add it yourself with your own rank.</p>
+              <p className="admin-status">Use this when the app missed a coffee shop and you want to add it yourself with one admin-only rank from 1 to 100.</p>
               <input required value={cafeForm.name} onChange={(event) => setCafeForm((current) => ({ ...current, name: event.target.value }))} placeholder="Coffee shop name" />
               <input required value={cafeForm.streetAddress} onChange={(event) => setCafeForm((current) => ({ ...current, streetAddress: event.target.value }))} placeholder="Street address" />
               <input required value={cafeForm.city} onChange={(event) => setCafeForm((current) => ({ ...current, city: event.target.value }))} placeholder="City" />
               <input required value={cafeForm.state} onChange={(event) => setCafeForm((current) => ({ ...current, state: event.target.value }))} placeholder="State" />
               <input value={cafeForm.neighborhood} onChange={(event) => setCafeForm((current) => ({ ...current, neighborhood: event.target.value }))} placeholder="Neighborhood" />
               <input required value={cafeForm.zipCode} onChange={(event) => setCafeForm((current) => ({ ...current, zipCode: event.target.value }))} placeholder="ZIP code" />
-              <input type="number" min="1" max="10" value={cafeForm.overallScore} onChange={(event) => setCafeForm((current) => ({ ...current, overallScore: event.target.value }))} placeholder="Your rank (1-10)" />
+              <input type="number" min="1" max="100" value={cafeForm.overallScore} onChange={(event) => setCafeForm((current) => ({ ...current, overallScore: event.target.value }))} placeholder="Your rank (1-100)" />
               <label className="admin-label">Tags</label>
               <div className="admin-chip-row">
                 {tagOptions.map((tag) => {

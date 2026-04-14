@@ -6,9 +6,8 @@ interface CafeCardProps {
 }
 
 function getYourRank(shop: RankedCoffeeShop): number | null {
-  const reviewScore = shop.personalScore;
-  if (reviewScore !== undefined) {
-    return Number(reviewScore.toFixed(1));
+  if (shop.ownerRank !== undefined) {
+    return Number(shop.ownerRank.toFixed(0));
   }
 
   const noteMatch = shop.signalNotes?.find((note) => /your overall rank is/i.test(note));
@@ -16,12 +15,17 @@ function getYourRank(shop: RankedCoffeeShop): number | null {
     return null;
   }
 
-  const match = noteMatch.match(/(\d+(?:\.\d+)?)\/10/);
-  if (!match) {
-    return null;
+  const match100 = noteMatch.match(/(\d+(?:\.\d+)?)\/100/);
+  if (match100) {
+    return Number(match100[1]);
   }
 
-  return Number(match[1]);
+  const match10 = noteMatch.match(/(\d+(?:\.\d+)?)\/10/);
+  if (match10) {
+    return Number(match10[1]) * 10;
+  }
+
+  return null;
 }
 
 function buildAddress(shop: RankedCoffeeShop): string {
@@ -69,7 +73,7 @@ export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
       </div>
 
       {yourRank !== null ? (
-        <p className="personal-score-line">Your rank: {yourRank} / 10</p>
+        <p className="personal-score-line">Your rank: {yourRank} / 100</p>
       ) : null}
 
       <button className="details-link" onClick={() => onViewDetails(shop)}>

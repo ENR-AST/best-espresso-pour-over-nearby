@@ -118,4 +118,5 @@ export interface RankedCoffeeShop extends CoffeeShop {
   specialtyScore: number;
   supportLabels: string[];
   personalScore?: number;
+  ownerRank?: number;
 }

@@ -106,7 +106,18 @@ function buildYourListShops(
     }
 
     const city = record.city?.toLowerCase() ?? "";
-    return !city || locationLabel.includes(city) || city.includes(locationLabel);
+    const cityMatch = !city || locationLabel.includes(city) || city.includes(locationLabel);
+    const distanceMatch =
+      record.latitude !== undefined &&
+      record.longitude !== undefined &&
+      getDistanceMiles(
+        resultsLocation.latitude,
+        resultsLocation.longitude,
+        record.latitude,
+        record.longitude
+      ) <= 15;
+
+    return cityMatch || distanceMatch;
   });
 
   for (const record of candidateRecords) {
@@ -154,11 +165,19 @@ function buildYourListShops(
         longitude: primary.longitude ?? (resultsLocation.longitude + longitudeOffset),
         openNow: true,
         tags,
-        distanceHintMiles: 0.6 + index * 0.15,
-        espressoEvidence: Math.min(10, 5.5 + espressoBoost * 4),
-        pourOverEvidence: Math.min(10, 5.5 + pourOverBoost * 4),
-        roasterProgram: Math.min(10, 4 + roasterBoost * 4),
-        credibilitySignals: Math.min(10, 6 + credibilityBoost * 4),
+        distanceHintMiles:
+          primary.latitude !== undefined && primary.longitude !== undefined
+            ? getDistanceMiles(
+                resultsLocation.latitude,
+                resultsLocation.longitude,
+                primary.latitude,
+                primary.longitude
+              )
+            : 0.6 + index * 0.15,
+        espressoEvidence: Math.min(10, 5.5 + espressoBoost * 6),
+        pourOverEvidence: Math.min(10, 5.5 + pourOverBoost * 6),
+        roasterProgram: Math.min(10, 4 + roasterBoost * 6),
+        credibilitySignals: Math.min(10, 6 + credibilityBoost * 6),
         publicRating: 4.2,
         sources,
         whyRecommended: "Added by you from the admin editor, so it appears directly in your coffee list.",
