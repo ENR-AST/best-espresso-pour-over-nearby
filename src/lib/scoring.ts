@@ -121,7 +121,10 @@ export function scoreShop(
       ownerInfluence +
       reviewedCafeBonus -
       penaltyScore;
-  const specialtyScore = Math.max(0, Math.min(100, Math.round(rawScore)));
+  const specialtyScore =
+    ownerRank !== undefined
+      ? Math.max(0, Math.min(100, Math.round(ownerRank)))
+      : Math.max(0, Math.min(100, Math.round(rawScore)));
 
   return {
     ...shop,

@@ -36,8 +36,8 @@ export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, on
             <h3>Why this is a specialty pick</h3>
             <p>{activeShop.whyRecommended}</p>
             <ul className="score-breakdown">
-              <li>App score: {activeShop.specialtyScore}</li>
-              {activeShop.ownerRank !== undefined ? <li>Your admin rank: {activeShop.ownerRank}/100</li> : null}
+              <li>Final rank: {activeShop.specialtyScore}/100</li>
+              {activeShop.ownerRank !== undefined ? <li>Source: your admin rank</li> : null}
               <li>Espresso evidence: {activeShop.espressoEvidence}/10</li>
               <li>Pour-over evidence: {activeShop.pourOverEvidence}/10</li>
               <li>Roaster program: {activeShop.roasterProgram}/10</li>

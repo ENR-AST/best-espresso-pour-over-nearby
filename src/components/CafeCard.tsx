@@ -66,15 +66,13 @@ export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
           </h3>
           <p className="address-line">{addressLine}</p>
         </div>
-        <div className="score-pill" aria-label={`App score ${shop.specialtyScore}`}>
-          <span className="score-pill-label">App score</span>
+        <div className="score-pill" aria-label={`Rank ${shop.specialtyScore}`}>
+          <span className="score-pill-label">Rank</span>
           <strong>{shop.specialtyScore}</strong>
         </div>
       </div>
 
-      {yourRank !== null ? (
-        <p className="personal-score-line">Your rank: {yourRank} / 100</p>
-      ) : null}
+      {yourRank !== null ? <p className="personal-score-line">From your admin rank</p> : null}
 
       <button className="details-link" onClick={() => onViewDetails(shop)}>
         View more details
