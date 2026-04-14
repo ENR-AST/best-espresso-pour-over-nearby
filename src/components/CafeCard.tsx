@@ -5,6 +5,25 @@ interface CafeCardProps {
   onViewDetails: (shop: RankedCoffeeShop) => void;
 }
 
+function getYourRank(shop: RankedCoffeeShop): number | null {
+  const reviewScore = shop.personalScore;
+  if (reviewScore !== undefined) {
+    return Number(reviewScore.toFixed(1));
+  }
+
+  const noteMatch = shop.signalNotes?.find((note) => /your overall rank is/i.test(note));
+  if (!noteMatch) {
+    return null;
+  }
+
+  const match = noteMatch.match(/(\d+(?:\.\d+)?)\/10/);
+  if (!match) {
+    return null;
+  }
+
+  return Number(match[1]);
+}
+
 function buildAddress(shop: RankedCoffeeShop): string {
   const parts = [shop.streetAddress, shop.city, shop.state].filter(Boolean);
   if (parts.length > 0) {
@@ -27,6 +46,7 @@ function buildAddress(shop: RankedCoffeeShop): string {
 export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
   const addressLine = buildAddress(shop);
   const isDiscoveredShop = shop.discoveredByYou || shop.id.startsWith("discovered-");
+  const yourRank = getYourRank(shop);
 
   return (
     <article className="cafe-card">
@@ -42,14 +62,14 @@ export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
           </h3>
           <p className="address-line">{addressLine}</p>
         </div>
-        <div className="score-pill" aria-label={`Grade ${shop.specialtyScore}`}>
-          <span className="score-pill-label">Grade</span>
+        <div className="score-pill" aria-label={`App score ${shop.specialtyScore}`}>
+          <span className="score-pill-label">App score</span>
           <strong>{shop.specialtyScore}</strong>
         </div>
       </div>
 
-      {shop.personalScore !== undefined ? (
-        <p className="personal-score-line">Your grade: {shop.personalScore.toFixed(1)} / 10</p>
+      {yourRank !== null ? (
+        <p className="personal-score-line">Your rank: {yourRank} / 10</p>
       ) : null}
 
       <button className="details-link" onClick={() => onViewDetails(shop)}>
