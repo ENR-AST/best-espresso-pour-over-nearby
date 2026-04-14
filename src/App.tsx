@@ -82,16 +82,88 @@ function enrichShopsForDisplay(shops: CoffeeShop[], curatedRecords: CuratedCafeR
   );
 }
 
+function normalizeShopKey(shop: CoffeeShop): string {
+  const normalize = (value: string | undefined) =>
+    (value ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ");
+
+  const normalizedStreet = normalize(shop.streetAddress);
+  const normalizedCity = normalize(shop.city);
+  const normalizedState = normalize(shop.state);
+  const normalizedName = normalize(shop.name);
+
+  return [normalizedName, normalizedStreet || normalize(shop.neighborhood), normalizedCity, normalizedState]
+    .filter(Boolean)
+    .join("|");
+}
+
+function mergeUniqueStrings(current: string[] = [], incoming: string[] = []) {
+  return Array.from(new Set([...current, ...incoming].filter(Boolean)));
+}
+
+function mergeDuplicateShops(shops: CoffeeShop[]): CoffeeShop[] {
+  const grouped = new Map<string, CoffeeShop>();
+
+  for (const shop of shops) {
+    const key = normalizeShopKey(shop);
+    const existing = grouped.get(key);
+
+    if (!existing) {
+      grouped.set(key, shop);
+      continue;
+    }
+
+    const preferred =
+      existing.id.startsWith("your-list-") || existing.discoveredByYou
+        ? existing
+        : shop.id.startsWith("your-list-") || shop.discoveredByYou
+          ? shop
+          : existing;
+    const secondary = preferred === existing ? shop : existing;
+
+    grouped.set(key, {
+      ...secondary,
+      ...preferred,
+      streetAddress: preferred.streetAddress || secondary.streetAddress,
+      neighborhood: preferred.neighborhood || secondary.neighborhood,
+      city: preferred.city || secondary.city,
+      state: preferred.state || secondary.state,
+      zipCode: preferred.zipCode || secondary.zipCode,
+      latitude: preferred.latitude ?? secondary.latitude,
+      longitude: preferred.longitude ?? secondary.longitude,
+      tags: Array.from(new Set([...preferred.tags, ...secondary.tags])),
+      sources: Array.from(
+        new Map(
+          [...preferred.sources, ...secondary.sources].map((source) => [
+            `${source.source}|${source.note}|${source.url}`,
+            source
+          ])
+        ).values()
+      ),
+      signalNotes: mergeUniqueStrings(preferred.signalNotes, secondary.signalNotes),
+      avoidNotes: mergeUniqueStrings(preferred.avoidNotes, secondary.avoidNotes),
+      penaltySignals: mergeUniqueStrings(preferred.penaltySignals, secondary.penaltySignals),
+      externalLinks: Array.from(
+        new Map(
+          [...preferred.externalLinks, ...secondary.externalLinks].map((link) => [
+            `${link.label}|${link.url}`,
+            link
+          ])
+        ).values()
+      )
+    });
+  }
+
+  return Array.from(grouped.values());
+}
+
 function buildYourListShops(
   curatedRecords: CuratedCafeRecord[],
   resultsLocation: SearchLocation,
   existingShops: CoffeeShop[]
 ): CoffeeShop[] {
-  const existingNames = new Set(
-    existingShops
-      .map((shop) => shop.name.trim().toLowerCase())
-      .filter(Boolean)
-  );
   const grouped = new Map<string, CuratedCafeRecord[]>();
   const locationLabel = resultsLocation.label.toLowerCase();
 
@@ -128,10 +200,7 @@ function buildYourListShops(
   }
 
   return Array.from(grouped.values())
-    .filter((records) => {
-      const primaryName = records[0]?.cafeName?.trim().toLowerCase();
-      return Boolean(primaryName) && !existingNames.has(primaryName);
-    })
+    .filter((records) => Boolean(records[0]?.cafeName?.trim()))
     .map((records, index) => {
       const primary = records[0];
       const primaryName = primary.cafeName.trim();
@@ -230,7 +299,10 @@ function App() {
   const displayShops = useMemo(() => {
     const baseShops = [...shops, ...discoveredShops];
     const yourListShops = buildYourListShops(curatedRecords, resultsLocation, baseShops);
-    return enrichShopsForDisplay([...baseShops, ...yourListShops], curatedRecords);
+    return enrichShopsForDisplay(
+      mergeDuplicateShops([...yourListShops, ...discoveredShops, ...shops]),
+      curatedRecords
+    );
   }, [shops, discoveredShops, curatedRecords, resultsLocation]);
 
   const rankedShops = useMemo(() => {
