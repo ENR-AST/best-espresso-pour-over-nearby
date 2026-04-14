@@ -402,6 +402,18 @@ export async function updatePersonalCafe(
   }
 }
 
+export async function deletePersonalCafe(cafeId: number): Promise<void> {
+  const supabase = requireSupabase();
+  const { error } = await supabase
+    .from("curated_cafes")
+    .delete()
+    .eq("id", cafeId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function createCuratedMention(input: AdminMentionInput): Promise<void> {
   const supabase = requireSupabase();
   const { error } = await supabase

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   createPersonalCafe,
+  deletePersonalCafe,
   listPersonalCafes,
   sendAdminMagicLink,
   signOutAdmin,
@@ -34,6 +35,7 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
   const [authEmailInput, setAuthEmailInput] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [listQuery, setListQuery] = useState("");
 
   const configuredPasscode = import.meta.env.VITE_ADMIN_PASSCODE;
   const adminAllowlist = useMemo(
@@ -55,6 +57,21 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
     zipCode: "",
     overallScore: "80",
     tags: ["specialty"] as Tag[]
+  });
+  const filteredCafes = cafes.filter((cafe) => {
+    const haystack = [
+      cafe.name,
+      cafe.street_address,
+      cafe.city,
+      cafe.state,
+      cafe.neighborhood,
+      cafe.zip_code
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(listQuery.trim().toLowerCase());
   });
 
   async function refreshAdminData() {
@@ -187,6 +204,30 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
   function handleCancelEdit() {
     setCafeForm({ id: null, name: "", streetAddress: "", city: "", state: "", neighborhood: "", zipCode: "", overallScore: "80", tags: ["specialty"] });
     setStatus("Edit cancelled.");
+  }
+
+  async function handleDeleteCafe(cafe: AdminPersonalCafeRow) {
+    const confirmed = window.confirm(`Delete ${cafe.name}? This will remove it from your added coffees.`);
+    if (!confirmed) {
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      await deletePersonalCafe(cafe.id);
+      await refreshAdminData();
+      await onSaved();
+
+      if (cafeForm.id === cafe.id) {
+        handleCancelEdit();
+      }
+
+      setStatus(`${cafe.name} was deleted.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not delete coffee.");
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   async function handleSendMagicLink() {
@@ -354,22 +395,36 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
                     Jump to editor
                   </a>
                 </div>
+                <input
+                  value={listQuery}
+                  onChange={(event) => setListQuery(event.target.value)}
+                  placeholder="Search your added coffees"
+                />
                 <div className="admin-list">
-                  {cafes.length === 0 ? (
+                  {filteredCafes.length === 0 ? (
                     <p className="admin-status">No admin-added coffees yet.</p>
                   ) : (
-                    cafes.map((cafe) => (
+                    filteredCafes.map((cafe) => (
                       <article key={cafe.id} className="admin-list-item">
                         <div>
                           <strong>{cafe.name}</strong>
+                          <div className="admin-inline-meta">
+                            {cafe.city ? <span className="admin-city-badge">{cafe.city}</span> : null}
+                            {cafe.state ? <span className="admin-city-badge muted">{cafe.state}</span> : null}
+                          </div>
                           <p className="admin-status">
                             {[cafe.street_address, cafe.city, cafe.state].filter(Boolean).join(", ")}
                           </p>
                           <p className="admin-status">Rank: {cafe.owner_rank ?? "Not set"} / 100</p>
                         </div>
-                        <button className="action-button" type="button" onClick={() => handleEditCafe(cafe)}>
-                          Edit
-                        </button>
+                        <div className="admin-item-actions">
+                          <button className="action-button" type="button" onClick={() => handleEditCafe(cafe)}>
+                            Edit
+                          </button>
+                          <button className="action-button reset" disabled={isBusy} type="button" onClick={() => handleDeleteCafe(cafe)}>
+                            Delete
+                          </button>
+                        </div>
                       </article>
                     ))
                   )}
@@ -467,22 +522,36 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
                   Jump to editor
                 </a>
               </div>
+              <input
+                value={listQuery}
+                onChange={(event) => setListQuery(event.target.value)}
+                placeholder="Search your added coffees"
+              />
               <div className="admin-list">
-                {cafes.length === 0 ? (
+                {filteredCafes.length === 0 ? (
                   <p className="admin-status">No admin-added coffees yet.</p>
                 ) : (
-                  cafes.map((cafe) => (
+                  filteredCafes.map((cafe) => (
                     <article key={cafe.id} className="admin-list-item">
                       <div>
                         <strong>{cafe.name}</strong>
+                        <div className="admin-inline-meta">
+                          {cafe.city ? <span className="admin-city-badge">{cafe.city}</span> : null}
+                          {cafe.state ? <span className="admin-city-badge muted">{cafe.state}</span> : null}
+                        </div>
                         <p className="admin-status">
                           {[cafe.street_address, cafe.city, cafe.state].filter(Boolean).join(", ")}
                         </p>
                         <p className="admin-status">Rank: {cafe.owner_rank ?? "Not set"} / 100</p>
                       </div>
-                      <button className="action-button" type="button" onClick={() => handleEditCafe(cafe)}>
-                        Edit
-                      </button>
+                      <div className="admin-item-actions">
+                        <button className="action-button" type="button" onClick={() => handleEditCafe(cafe)}>
+                          Edit
+                        </button>
+                        <button className="action-button reset" disabled={isBusy} type="button" onClick={() => handleDeleteCafe(cafe)}>
+                          Delete
+                        </button>
+                      </div>
                     </article>
                   ))
                 )}
