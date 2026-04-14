@@ -123,7 +123,7 @@ export function applyFilters(
         case "open-now":
           return shop.openNow;
         case "walkable":
-          return shop.distanceMiles <= 1.2;
+          return shop.distanceMiles <= 0.5;
         default:
           return true;
       }
