@@ -19,6 +19,12 @@ create table if not exists curated_cafes (
   tags text[] not null default array['specialty']::text[]
 );
 
+alter table curated_cafes add column if not exists street_address text;
+alter table curated_cafes add column if not exists state text;
+alter table curated_cafes add column if not exists zip_code text;
+alter table curated_cafes add column if not exists latitude double precision;
+alter table curated_cafes add column if not exists longitude double precision;
+
 create table if not exists curated_mentions (
   id bigint generated always as identity primary key,
   source_id text not null references curated_sources(id) on delete cascade,
