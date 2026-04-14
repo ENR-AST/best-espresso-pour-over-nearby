@@ -212,17 +212,6 @@ export function LocationPanel({
             ))}
           </div>
         </div>
-
-        <div className="status-grid">
-          <div>
-            <span className="status-label">Current search base</span>
-            <strong>{location.label}</strong>
-          </div>
-          <div>
-            <span className="status-label">Location status</span>
-            <strong>{geoStatus}</strong>
-          </div>
-        </div>
       </div>
     </section>
   );
