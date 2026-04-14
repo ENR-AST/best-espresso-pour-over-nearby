@@ -59,9 +59,14 @@ export function LocationPanel({
   return (
     <section className="hero-panel">
       <nav className="top-nav" aria-label="Primary">
-        <div className="nav-brand">
-          <span className="nav-mark">Wali Espresso</span>
-          <span className="nav-subtitle">Specialty coffee finder</span>
+        <div className="brand-cluster">
+          <div className="logo-frame compact">
+            <img src={logoSrc} alt="Wali Espresso logo" className="hero-logo" />
+          </div>
+          <div className="nav-brand">
+            <span className="nav-mark">Wali Espresso</span>
+            <span className="nav-subtitle">Specialty coffee finder</span>
+          </div>
         </div>
 
         <div className="nav-links">
@@ -69,21 +74,38 @@ export function LocationPanel({
           <a href="#method">Method</a>
           <a href="#about">About</a>
         </div>
-
-        <div className="brand-corner">
-          <div className="logo-frame compact">
-            <img src={logoSrc} alt="Wali Espresso logo" className="hero-logo" />
-          </div>
-        </div>
       </nav>
 
       <div className="hero-layout hero-layout-balanced">
         <div className="hero-copy">
           <p className="eyebrow">Best Espresso & Pour Over Nearby</p>
           <h1>Coffe Near You</h1>
-          <p className="lead">
-            Search by your location, city, or ZIP code and get specialty-focused recommendations backed by coffee-first evidence.
-          </p>
+          <div className="lead search-mode-intro">
+            <span className="search-mode-label">Search coffe by:</span>
+            <div className="search-mode-buttons">
+              <button
+                type="button"
+                className={searchMode === "current" ? "filter-chip active" : "filter-chip"}
+                onClick={() => onSelectMode("current")}
+              >
+                Your location
+              </button>
+              <button
+                type="button"
+                className={searchMode === "city" ? "filter-chip active" : "filter-chip"}
+                onClick={() => onSelectMode("city")}
+              >
+                City
+              </button>
+              <button
+                type="button"
+                className={searchMode === "zip" ? "filter-chip active" : "filter-chip"}
+                onClick={() => onSelectMode("zip")}
+              >
+                Zipcode
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="hero-map-card">
@@ -132,19 +154,6 @@ export function LocationPanel({
 
       <div className="search-shell">
         <div className="mode-select-row">
-          <div className="mode-select-block">
-            <span className="status-label">Search by</span>
-            <select
-              className="mode-select"
-              value={searchMode}
-              onChange={(event) => onSelectMode(event.target.value as SearchMode)}
-            >
-              <option value="current">My current location</option>
-              <option value="city">City name</option>
-              <option value="zip">Zip code</option>
-            </select>
-          </div>
-
           <button className="action-button reset" onClick={onReset} type="button">
             Reset
           </button>
