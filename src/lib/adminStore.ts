@@ -172,10 +172,20 @@ export async function createCuratedCafe(input: {
 
 export async function createPersonalCafe(input: AdminPersonalCafeInput): Promise<void> {
   const supabase = requireSupabase();
+  const trimmedName = input.name.trim();
+  if (!trimmedName) {
+    throw new Error("Coffee shop name is required.");
+  }
+
+  const trimmedCity = input.city?.trim();
+  if (!trimmedCity) {
+    throw new Error("City is required.");
+  }
+
   const cafe = await createCuratedCafe({
-    name: input.name,
-    city: input.city,
-    neighborhood: input.neighborhood,
+    name: trimmedName,
+    city: trimmedCity,
+    neighborhood: input.neighborhood?.trim() || undefined,
     tags: input.tags
   });
 

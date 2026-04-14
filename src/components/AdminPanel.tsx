@@ -233,11 +233,13 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
                 <h3>Add Coffee</h3>
                 <p className="admin-status">Use this when the app missed a coffee shop and you want to add it yourself with your own rank.</p>
                 <input
+                  required
                   value={cafeForm.name}
                   onChange={(event) => setCafeForm((current) => ({ ...current, name: event.target.value }))}
                   placeholder="Coffee shop name"
                 />
                 <input
+                  required
                   value={cafeForm.city}
                   onChange={(event) => setCafeForm((current) => ({ ...current, city: event.target.value }))}
                   placeholder="City"
@@ -320,8 +322,8 @@ export function AdminPanel({ curatedMode, onSaved }: AdminPanelProps) {
             <form className="admin-card admin-card-wide" onSubmit={handleCreateCafe}>
               <h3>Add Coffee</h3>
               <p className="admin-status">Use this when the app missed a coffee shop and you want to add it yourself with your own rank.</p>
-              <input value={cafeForm.name} onChange={(event) => setCafeForm((current) => ({ ...current, name: event.target.value }))} placeholder="Coffee shop name" />
-              <input value={cafeForm.city} onChange={(event) => setCafeForm((current) => ({ ...current, city: event.target.value }))} placeholder="City" />
+              <input required value={cafeForm.name} onChange={(event) => setCafeForm((current) => ({ ...current, name: event.target.value }))} placeholder="Coffee shop name" />
+              <input required value={cafeForm.city} onChange={(event) => setCafeForm((current) => ({ ...current, city: event.target.value }))} placeholder="City" />
               <input value={cafeForm.neighborhood} onChange={(event) => setCafeForm((current) => ({ ...current, neighborhood: event.target.value }))} placeholder="Neighborhood" />
               <input type="number" min="1" max="10" value={cafeForm.overallScore} onChange={(event) => setCafeForm((current) => ({ ...current, overallScore: event.target.value }))} placeholder="Your rank (1-10)" />
               <label className="admin-label">Tags</label>

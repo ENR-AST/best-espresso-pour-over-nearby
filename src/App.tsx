@@ -87,11 +87,20 @@ function buildYourListShops(
   resultsLocation: SearchLocation,
   existingShops: CoffeeShop[]
 ): CoffeeShop[] {
-  const existingNames = new Set(existingShops.map((shop) => shop.name.trim().toLowerCase()));
+  const existingNames = new Set(
+    existingShops
+      .map((shop) => shop.name.trim().toLowerCase())
+      .filter(Boolean)
+  );
   const grouped = new Map<string, CuratedCafeRecord[]>();
   const locationLabel = resultsLocation.label.toLowerCase();
 
   const candidateRecords = curatedRecords.filter((record) => {
+    const cafeName = record.cafeName?.trim();
+    if (!cafeName) {
+      return false;
+    }
+
     if (record.sourceId !== "your-list") {
       return false;
     }
@@ -101,16 +110,20 @@ function buildYourListShops(
   });
 
   for (const record of candidateRecords) {
-    const key = `${record.cafeName.toLowerCase()}|${record.city?.toLowerCase() ?? ""}|${record.neighborhood?.toLowerCase() ?? ""}`;
+    const key = `${record.cafeName.trim().toLowerCase()}|${record.city?.toLowerCase() ?? ""}|${record.neighborhood?.toLowerCase() ?? ""}`;
     const current = grouped.get(key) ?? [];
     current.push(record);
     grouped.set(key, current);
   }
 
   return Array.from(grouped.values())
-    .filter((records) => !existingNames.has(records[0].cafeName.trim().toLowerCase()))
+    .filter((records) => {
+      const primaryName = records[0]?.cafeName?.trim().toLowerCase();
+      return Boolean(primaryName) && !existingNames.has(primaryName);
+    })
     .map((records, index) => {
       const primary = records[0];
+      const primaryName = primary.cafeName.trim();
       const latitudeOffset = (index + 1) * 0.0011;
       const longitudeOffset = (index + 1) * 0.0009;
       const tags = Array.from(new Set(records.flatMap((record) => record.tags)));
@@ -129,8 +142,8 @@ function buildYourListShops(
       }));
 
       return {
-        id: `your-list-${primary.cafeName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-        name: primary.cafeName,
+        id: `your-list-${primaryName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        name: primaryName,
         discoveredByYou: true,
         streetAddress: undefined,
         neighborhood: primary.neighborhood ?? "Added by you",

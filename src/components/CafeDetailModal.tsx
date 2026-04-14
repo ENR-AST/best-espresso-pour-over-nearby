@@ -158,7 +158,7 @@ export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, on
         <div className="modal-header">
           <div>
             <p className="eyebrow">Cafe detail</p>
-            <h2>{activeShop.name}</h2>
+            <h2>{activeShop.name || "Coffee shop"}</h2>
           </div>
           <button className="close-button" onClick={onClose}>
             Close

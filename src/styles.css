@@ -473,8 +473,22 @@ a { color: inherit; text-decoration: none; }
   place-items: center;
   padding: 1rem;
   background: rgba(36, 21, 12, 0.38);
+  z-index: 4000;
 }
-.modal-card { width: min(900px, 100%); max-height: 90vh; overflow: auto; padding: 1rem; }
+.modal-card {
+  position: relative;
+  z-index: 4001;
+  width: min(900px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1rem;
+}
+.leaflet-container,
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 1;
+}
 .close-button { background: rgba(47, 29, 20, 0.08); }
 .score-breakdown { padding-left: 1.25rem; color: var(--muted); }
 .external-links { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-top: 1rem; }
