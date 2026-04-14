@@ -205,8 +205,6 @@ function App() {
     return rankCoffeeShops(displayShops, resultsLocation, activeFilters, personalReviews);
   }, [displayShops, resultsLocation, activeFilters, personalReviews]);
 
-  const topPick = rankedShops[0];
-
   const resetToDefault = useCallback((status = "Use your location or enter a ZIP code/city to begin.") => {
     setLocation(defaultLocation);
     setResultsLocation(defaultLocation);
@@ -687,21 +685,6 @@ function App() {
           previewShops={rankedShops.slice(0, 3)}
         />
       </section>
-
-        <section className="top-pick-panel">
-          <p className="eyebrow">Top recommendation</p>
-          <div className="top-pick-card">
-            <div>
-            <h2>{topPick?.name ?? "Choose your location to begin"}</h2>
-            <p>{topPick?.whyRecommended ?? "Select `Use my location` or enter a ZIP code/city to start seeing ranked nearby coffee shops."}</p>
-            </div>
-            <div className="top-pick-stats">
-              <span>{topPick ? `${topPick.specialtyScore} specialty score` : "Coffee-first results appear here"}</span>
-              <span>{topPick ? `${topPick.distanceMiles.toFixed(1)} mi away` : "Use your location or search by ZIP/city"}</span>
-              <span>{topPick ? topPick.supportLabels.join(" · ") : "The app no longer starts in New York by default"}</span>
-            </div>
-          </div>
-        </section>
 
       <section id="results" className="results-shell">
         <div className="section-heading results-header">
