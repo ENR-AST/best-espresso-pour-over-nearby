@@ -160,6 +160,13 @@ export function rankCoffeeShops(
     shops.map((shop) => scoreShop(shop, location)),
     filters
   ).sort((a, b) => {
+    const aIsYourSelection = a.discoveredByYou || a.ownerRank !== undefined;
+    const bIsYourSelection = b.discoveredByYou || b.ownerRank !== undefined;
+
+    if (aIsYourSelection !== bIsYourSelection) {
+      return aIsYourSelection ? -1 : 1;
+    }
+
     if (b.specialtyScore !== a.specialtyScore) {
       return b.specialtyScore - a.specialtyScore;
     }
