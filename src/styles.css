@@ -183,18 +183,31 @@ a { color: inherit; text-decoration: none; }
   color: var(--text);
 }
 .status-indicator {
-  width: 0.7rem;
-  height: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  min-width: 1.2rem;
+}
+.status-indicator span {
+  width: 0.34rem;
+  height: 0.34rem;
   border-radius: 999px;
   background: var(--olive);
-  box-shadow: 0 0 0 0 rgba(96, 104, 72, 0.28);
+  opacity: 0.45;
 }
-.status-strip.working .status-indicator {
+.status-strip.working .status-indicator span {
   background: var(--accent);
-  animation: pulse-status 1.2s infinite;
+  animation: blink-status 1s infinite ease-in-out;
 }
-.status-strip.ready .status-indicator {
+.status-strip.working .status-indicator span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.status-strip.working .status-indicator span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.status-strip.ready .status-indicator span {
   background: var(--olive);
+  opacity: 0.8;
 }
 .saved-city-chip {
   border: 1px solid rgba(93, 58, 35, 0.08);
@@ -549,10 +562,9 @@ a { color: inherit; text-decoration: none; }
   text-align: center;
   font-weight: 700;
 }
-@keyframes pulse-status {
-  0% { box-shadow: 0 0 0 0 rgba(164, 74, 43, 0.28); }
-  70% { box-shadow: 0 0 0 10px rgba(164, 74, 43, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(164, 74, 43, 0); }
+@keyframes blink-status {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-1px); }
 }
 @media (min-width: 760px) {
   .app-shell { width: min(1120px, calc(100% - 2rem)); padding-top: 1.15rem; }

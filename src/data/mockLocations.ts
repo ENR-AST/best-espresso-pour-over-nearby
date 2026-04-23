@@ -14,6 +14,49 @@ function cleanText(value: string): string {
 
 export const mockLocationEntries: MockLocationEntry[] = [
   {
+    label: "Bethesda, MD",
+    latitude: 38.9847,
+    longitude: -77.0947,
+    source: "manual",
+    aliases: [
+      "bethesda",
+      "bethesda md",
+      "20814",
+      "20816",
+      "zip 20814",
+      "zip 20816",
+      "woodmont triangle"
+    ]
+  },
+  {
+    label: "Jersey City, NJ",
+    latitude: 40.7178,
+    longitude: -74.0431,
+    source: "manual",
+    aliases: [
+      "jersey city",
+      "jersey city nj",
+      "07302",
+      "07310",
+      "zip 07302",
+      "zip 07310"
+    ]
+  },
+  {
+    label: "Venice, FL",
+    latitude: 27.0998,
+    longitude: -82.4543,
+    source: "manual",
+    aliases: [
+      "venice",
+      "venice fl",
+      "34285",
+      "34293",
+      "zip 34285",
+      "zip 34293"
+    ]
+  },
+  {
     label: "SoHo, New York, NY",
     latitude: 40.7233,
     longitude: -74.003,
@@ -148,8 +191,8 @@ export function findMockLocation(query: string): SearchLocation | null {
 }
 
 export const defaultLocation: SearchLocation = {
-  label: "Choose your location to begin",
-  latitude: 39.8283,
-  longitude: -98.5795,
+  label: "Bethesda, MD",
+  latitude: 38.9847,
+  longitude: -77.0947,
   source: "default"
 };

@@ -259,13 +259,115 @@ function buildYourListShops(
     });
 }
 
+function buildCuratedFallbackShops(
+  curatedRecords: CuratedCafeRecord[],
+  resultsLocation: SearchLocation
+): CoffeeShop[] {
+  const grouped = new Map<string, CuratedCafeRecord[]>();
+  const locationLabel = resultsLocation.label.toLowerCase();
+
+  const candidateRecords = curatedRecords.filter((record) => {
+    const cafeName = record.cafeName?.trim();
+    if (!cafeName) return false;
+
+    const city = record.city?.toLowerCase() ?? "";
+    const neighborhood = record.neighborhood?.toLowerCase() ?? "";
+    const cityMatch =
+      !city ||
+      locationLabel.includes(city) ||
+      city.includes(locationLabel) ||
+      (neighborhood && locationLabel.includes(neighborhood));
+    const distanceMatch =
+      record.latitude !== undefined &&
+      record.longitude !== undefined &&
+      getDistanceMiles(
+        resultsLocation.latitude,
+        resultsLocation.longitude,
+        record.latitude,
+        record.longitude
+      ) <= 15;
+
+    return cityMatch || distanceMatch;
+  });
+
+  for (const record of candidateRecords) {
+    const key = `${record.cafeName.trim().toLowerCase()}|${record.city?.toLowerCase() ?? ""}|${record.neighborhood?.toLowerCase() ?? ""}`;
+    const current = grouped.get(key) ?? [];
+    current.push(record);
+    grouped.set(key, current);
+  }
+
+  return Array.from(grouped.values()).map((records, index) => {
+    const primary = records[0];
+    const primaryName = primary.cafeName.trim();
+    const latitudeOffset = (index + 1) * 0.0011;
+    const longitudeOffset = (index + 1) * 0.0009;
+    const tags = Array.from(new Set(records.flatMap((record) => record.tags)));
+    const espressoBoost = Math.max(...records.map((record) => record.espressoBoost ?? 0), 0);
+    const pourOverBoost = Math.max(...records.map((record) => record.pourOverBoost ?? 0), 0);
+    const roasterBoost = Math.max(...records.map((record) => record.roasterBoost ?? 0), 0);
+    const credibilityBoost = Math.max(...records.map((record) => record.credibilityBoost ?? 0), 0);
+    const signalNotes = Array.from(new Set(records.flatMap((record) => record.signalNotes ?? [])));
+    const avoidNotes = Array.from(new Set(records.flatMap((record) => record.avoidNotes ?? [])));
+    const penaltySignals = Array.from(new Set(records.flatMap((record) => record.penaltySignals ?? [])));
+    const sources = records.map((record) => ({
+      source: record.sourceName,
+      category: record.category,
+      note: record.evidenceNote,
+      weight: record.confidence,
+      url: record.sourceUrl
+    }));
+    const addedByYou = records.some((record) => record.sourceId === "your-list");
+
+    return {
+      id: `${addedByYou ? "your-list" : "curated"}-${primaryName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      name: primaryName,
+      discoveredByYou: addedByYou,
+      streetAddress: primary.streetAddress,
+      neighborhood: primary.neighborhood ?? "Specialty coffee",
+      city: primary.city ?? resultsLocation.label,
+      state: primary.state,
+      zipCode: primary.zipCode ?? "",
+      latitude: primary.latitude ?? (resultsLocation.latitude + latitudeOffset),
+      longitude: primary.longitude ?? (resultsLocation.longitude + longitudeOffset),
+      openNow: true,
+      tags,
+      distanceHintMiles:
+        primary.latitude !== undefined && primary.longitude !== undefined
+          ? getDistanceMiles(
+              resultsLocation.latitude,
+              resultsLocation.longitude,
+              primary.latitude,
+              primary.longitude
+            )
+          : 0.4 + index * 0.12,
+      espressoEvidence: Math.min(10, 5.8 + espressoBoost * 6),
+      pourOverEvidence: Math.min(10, 5.8 + pourOverBoost * 6),
+      roasterProgram: Math.min(10, 4.4 + roasterBoost * 6),
+      credibilitySignals: Math.min(10, 6 + credibilityBoost * 6),
+      publicRating: 4.3,
+      sources,
+      whyRecommended: addedByYou
+        ? "Added by you from the admin editor, so it appears directly in your coffee list."
+        : "Curated specialty coffee fallback for this area, built from editorial and enthusiast coffee sources.",
+      signalNotes,
+      avoidNotes,
+      penaltySignals,
+      externalLinks: records.map((record) => ({
+        label: record.sourceName,
+        url: record.sourceUrl
+      }))
+    } satisfies CoffeeShop;
+  });
+}
+
 function App() {
   const [location, setLocation] = useState<SearchLocation>(defaultLocation);
   const [resultsLocation, setResultsLocation] = useState<SearchLocation>(defaultLocation);
   const [locationInput, setLocationInput] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("current");
   const [savedCities, setSavedCities] = useState<SavedCity[]>(() => loadSavedCities());
-  const [geoStatus, setGeoStatus] = useState("Use your location or enter a ZIP code/city to begin.");
+  const [geoStatus, setGeoStatus] = useState("Choose your location, city, or ZIP code to begin.");
   const [resultsStatus, setResultsStatus] = useState<"live" | "fallback">("fallback");
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
   const [selectedShop, setSelectedShop] = useState<RankedCoffeeShop | null>(null);
@@ -293,9 +395,10 @@ function App() {
   }, []);
 
   const displayShops = useMemo(() => {
+    const curatedFallbackShops = buildCuratedFallbackShops(curatedRecords, resultsLocation);
     const yourListShops = buildYourListShops(curatedRecords, resultsLocation, shops);
     return enrichShopsForDisplay(
-      mergeDuplicateShops([...yourListShops, ...shops]),
+      mergeDuplicateShops([...curatedFallbackShops, ...yourListShops, ...shops]),
       curatedRecords
     );
   }, [shops, curatedRecords, resultsLocation]);
@@ -304,7 +407,7 @@ function App() {
     return rankCoffeeShops(displayShops, resultsLocation, activeFilters);
   }, [displayShops, resultsLocation, activeFilters]);
 
-  const resetToDefault = useCallback((status = "Use your location or enter a ZIP code/city to begin.") => {
+  const resetToDefault = useCallback((status = "Choose your location, city, or ZIP code to begin.") => {
     setLocation(defaultLocation);
     setResultsLocation(defaultLocation);
     setLocationInput("");
@@ -375,11 +478,6 @@ function App() {
             source: "geolocation"
           };
 
-          const nearestPrototype = getNearestPrototypeMarket(
-            position.coords.latitude,
-            position.coords.longitude
-          );
-
           setLocation(userLocation);
           setLocationInput("");
 
@@ -396,16 +494,16 @@ function App() {
             }
 
             if (!isLatestLocationRequest(requestId)) return;
-            setResultsLocation(nearestPrototype);
-            setShops(mockCoffeeShops);
+            setResultsLocation(userLocation);
+            setShops([]);
             setResultsStatus("fallback");
-            setGeoStatus(`${locationLabel} was detected, but live nearby lookup returned no cafes. Showing fallback recommendations centered near ${nearestPrototype.label} instead.`);
+            setGeoStatus(`${locationLabel} was detected, but live nearby lookup returned no cafes. Showing curated fallback coffee picks for that area instead.`);
           } catch (error) {
             if (!isLatestLocationRequest(requestId)) return;
-            setResultsLocation(nearestPrototype);
-            setShops(mockCoffeeShops);
+            setResultsLocation(userLocation);
+            setShops([]);
             setResultsStatus("fallback");
-            setGeoStatus(`${locationLabel} was detected, but nearby coffee lookup failed. Showing fallback recommendations centered near ${nearestPrototype.label} instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
+            setGeoStatus(`${locationLabel} was detected, but nearby coffee lookup failed. Showing curated fallback coffee picks for that area instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
           } finally {
             if (isLatestLocationRequest(requestId)) {
               setIsLoading(false);
@@ -501,8 +599,6 @@ function App() {
       return;
     }
 
-    const nearestPrototype = getNearestPrototypeMarket(liveLocation.latitude, liveLocation.longitude);
-
     try {
       const liveShops = await fetchNearbyCoffeeShops(liveLocation);
       if (!isLatestLocationRequest(requestId)) return;
@@ -518,20 +614,20 @@ function App() {
       }
 
       setLocation(liveLocation);
-      setResultsLocation(nearestPrototype);
-      setShops(mockCoffeeShops);
+      setResultsLocation(liveLocation);
+      setShops([]);
       setResultsStatus("fallback");
-      setGeoStatus(`Found ${liveLocation.label}, but live nearby cafes were unavailable. Showing fallback recommendations centered near ${nearestPrototype.label}.`);
+      setGeoStatus(`Found ${liveLocation.label}, but live nearby cafes were unavailable. Showing curated fallback coffee picks for that area.`);
       setIsLoading(false);
       return;
     } catch (error) {
       if (!isLatestLocationRequest(requestId)) return;
 
       setLocation(liveLocation);
-      setResultsLocation(nearestPrototype);
-      setShops(mockCoffeeShops);
+      setResultsLocation(liveLocation);
+      setShops([]);
       setResultsStatus("fallback");
-      setGeoStatus(`Found ${liveLocation.label}, but nearby lookup failed. Showing fallback recommendations centered near ${nearestPrototype.label} instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
+      setGeoStatus(`Found ${liveLocation.label}, but nearby lookup failed. Showing curated fallback coffee picks for that area instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
       setIsLoading(false);
       return;
     }
@@ -627,8 +723,6 @@ function App() {
       return;
     }
 
-    const nearestPrototype = getNearestPrototypeMarket(liveLocation.latitude, liveLocation.longitude);
-
     try {
       const liveShops = await fetchNearbyCoffeeShops(liveLocation);
       if (!isLatestLocationRequest(requestId)) return;
@@ -643,19 +737,19 @@ function App() {
         return;
       }
 
-      setResultsLocation(nearestPrototype);
-      setShops(mockCoffeeShops);
+      setResultsLocation(liveLocation);
+      setShops([]);
       setResultsStatus("fallback");
-      setGeoStatus(`Found ${liveLocation.label}, but live nearby cafes were unavailable. Showing fallback recommendations centered near ${nearestPrototype.label}.`);
+      setGeoStatus(`Found ${liveLocation.label}, but live nearby cafes were unavailable. Showing curated fallback coffee picks for that area.`);
       setIsLoading(false);
     } catch (error) {
       if (!isLatestLocationRequest(requestId)) return;
 
       setLocation(liveLocation);
-      setResultsLocation(nearestPrototype);
-      setShops(mockCoffeeShops);
+      setResultsLocation(liveLocation);
+      setShops([]);
       setResultsStatus("fallback");
-      setGeoStatus(`Found ${liveLocation.label}, but nearby lookup failed. Showing fallback recommendations centered near ${nearestPrototype.label} instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
+      setGeoStatus(`Found ${liveLocation.label}, but nearby lookup failed. Showing curated fallback coffee picks for that area instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
       setIsLoading(false);
     }
   }

@@ -158,7 +158,11 @@ export function LocationPanel({
         </div>
 
         <div className={isLoading ? "status-strip working" : "status-strip ready"}>
-          <span className="status-indicator" aria-hidden="true" />
+          <span className="status-indicator" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
           <strong>{isLoading ? "Working" : "Ready"}</strong>
           <span>{geoStatus}</span>
         </div>
