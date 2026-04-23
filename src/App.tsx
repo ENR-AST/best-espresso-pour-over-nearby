@@ -679,7 +679,6 @@ function App() {
     <main className="app-shell">
       <section id="about">
         <LocationPanel
-          location={location}
           locationInput={locationInput}
           onInputChange={setLocationInput}
           onSearch={handleSearch}
@@ -693,7 +692,6 @@ function App() {
           logoSrc={waliEspressoLogo}
           isLoading={isLoading}
           savedCities={savedCities}
-          previewShops={rankedShops.slice(0, 3)}
         />
       </section>
 
@@ -701,7 +699,7 @@ function App() {
         <div className="section-heading results-header">
           <div>
             <p className="eyebrow">Results</p>
-            <h2>Ranked cafes and roasters</h2>
+            <h2>Ranked coffee</h2>
           </div>
           <div className="results-meta">
             <span className={resultsStatus === "live" ? "results-badge live" : "results-badge fallback"}>
@@ -721,31 +719,6 @@ function App() {
           </div>
 
           <MapCardRail shops={rankedShops} location={resultsLocation} />
-        </div>
-      </section>
-
-      <section id="method" className="architecture-panel">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Method</p>
-            <h2>Production-minded, mock-data first</h2>
-          </div>
-        </div>
-        <div className="architecture-grid">
-          <article>
-            <h3>Simpler interface</h3>
-            <p>The app now uses direct search buttons for your location, city, or ZIP code, with a dedicated reset action.</p>
-          </article>
-          <article>
-            <h3>Real map</h3>
-            <p>Leaflet plots the actual result area so the map matches the cafes you are seeing.</p>
-          </article>
-          <article>
-            <h3>Curated specialty enrichment</h3>
-            <p>Live places are matched against known specialty cafes in the curated dataset to inherit stronger editorial and enthusiast signals.</p>
-            <p>{curatedRecordsMode === "supabase" ? "Curated source mode: Supabase." : "Curated source mode: bundled fallback."}</p>
-            <p>{curatedRecordsNote}</p>
-          </article>
         </div>
       </section>
 

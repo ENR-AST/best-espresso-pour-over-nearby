@@ -1,6 +1,4 @@
-import "leaflet/dist/leaflet.css";
-import { CircleMarker, MapContainer, TileLayer, useMap } from "react-leaflet";
-import type { RankedCoffeeShop, SearchLocation, SearchMode } from "../types/coffee";
+import type { SearchMode } from "../types/coffee";
 
 interface SavedCity {
   label: string;
@@ -17,18 +15,10 @@ interface LocationPanelProps {
   onSelectSavedCity: (cityValue: string) => void;
   onAddSavedCity: (cityValue: string) => void;
   searchMode: SearchMode;
-  location: SearchLocation;
   geoStatus: string;
   logoSrc: string;
   isLoading: boolean;
   savedCities: SavedCity[];
-  previewShops: RankedCoffeeShop[];
-}
-
-function RecenterPreviewMap({ location }: { location: SearchLocation }) {
-  const map = useMap();
-  map.setView([location.latitude, location.longitude], map.getZoom(), { animate: true });
-  return null;
 }
 
 export function LocationPanel({
@@ -41,12 +31,10 @@ export function LocationPanel({
   onSelectSavedCity,
   onAddSavedCity,
   searchMode,
-  location,
   geoStatus,
   logoSrc,
   isLoading,
-  savedCities,
-  previewShops
+  savedCities
 }: LocationPanelProps) {
   const placeholder = searchMode === "zip" ? "Enter a 5-digit ZIP code" : "Enter a city or neighborhood";
 
@@ -71,12 +59,11 @@ export function LocationPanel({
 
         <div className="nav-links">
           <a href="#results">Results</a>
-          <a href="#method">Method</a>
           <a href="#about">About</a>
         </div>
       </nav>
 
-      <div className="hero-layout hero-layout-balanced">
+      <div className="hero-layout hero-layout-compact">
         <div className="hero-copy">
           <p className="eyebrow">Best Espresso & Pour Over Nearby</p>
           <h1>Coffe Near You</h1>
@@ -105,49 +92,6 @@ export function LocationPanel({
                 Zipcode
               </button>
             </div>
-          </div>
-        </div>
-
-        <div className="hero-map-card">
-          <div className="hero-map-heading">
-            <p className="eyebrow">Map preview</p>
-            <strong>{location.label}</strong>
-          </div>
-          <div className="leaflet-shell hero-map-shell">
-            <MapContainer
-              center={[location.latitude, location.longitude]}
-              zoom={12}
-              scrollWheelZoom={false}
-              dragging={true}
-              className="hero-leaflet-map"
-            >
-              <RecenterPreviewMap location={location} />
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <CircleMarker
-                center={[location.latitude, location.longitude]}
-                radius={8}
-                pathOptions={{ color: "#a44a2b", fillColor: "#a44a2b", fillOpacity: 0.95 }}
-              />
-              {previewShops.map((shop) => (
-                <CircleMarker
-                  key={shop.id}
-                  center={[shop.latitude, shop.longitude]}
-                  radius={7}
-                  pathOptions={{ color: "#606848", fillColor: "#606848", fillOpacity: 0.75 }}
-                />
-              ))}
-            </MapContainer>
-          </div>
-          <div className="hero-map-list">
-            {previewShops.slice(0, 3).map((shop) => (
-              <div key={shop.id} className="hero-map-list-item">
-                <strong>{shop.name}</strong>
-                <span>{shop.distanceMiles.toFixed(1)} mi</span>
-              </div>
-            ))}
           </div>
         </div>
       </div>
@@ -211,6 +155,12 @@ export function LocationPanel({
               </button>
             ))}
           </div>
+        </div>
+
+        <div className={isLoading ? "status-strip working" : "status-strip ready"}>
+          <span className="status-indicator" aria-hidden="true" />
+          <strong>{isLoading ? "Working" : "Ready"}</strong>
+          <span>{geoStatus}</span>
         </div>
       </div>
     </section>

@@ -26,7 +26,7 @@ button, input, select { font: inherit; }
 button { cursor: pointer; }
 a { color: inherit; text-decoration: none; }
 .app-shell { width: min(1100px, calc(100% - 1.5rem)); margin: 0 auto; padding: 1rem 0 4rem; }
-.hero-panel, .top-pick-panel, .results-shell, .architecture-panel {
+.hero-panel, .top-pick-panel, .results-shell {
   margin-top: 1rem;
   border: 1px solid var(--line);
   background: var(--surface);
@@ -41,7 +41,7 @@ a { color: inherit; text-decoration: none; }
   box-shadow: var(--shadow);
   padding: 1.05rem;
 }
-.hero-panel { padding: 1.2rem; }
+.hero-panel { padding: 1rem 1.1rem; }
 .top-nav {
   display: grid;
   grid-template-columns: 1fr;
@@ -60,8 +60,8 @@ a { color: inherit; text-decoration: none; }
 .nav-subtitle { color: var(--muted); font-size: 0.9rem; }
 .nav-links { display: flex; gap: 1rem; flex-wrap: wrap; }
 .nav-links a { color: var(--muted); font-size: 0.95rem; }
-.hero-layout { display: grid; gap: 0.75rem; align-items: center; padding-top: 1rem; }
-.hero-layout-balanced { gap: 1rem; }
+.hero-layout { display: grid; gap: 0.55rem; align-items: center; padding-top: 0.75rem; }
+.hero-layout-compact { gap: 0.45rem; }
 .hero-copy h1, .section-heading h2, .top-pick-card h2, .map-placeholder h2, .architecture-panel h2, .modal-card h2 {
   font-family: "Alegreya", serif;
   margin: 0;
@@ -69,7 +69,7 @@ a { color: inherit; text-decoration: none; }
 }
 .hero-copy h1 { font-size: clamp(1.55rem, 3vw, 2.35rem); max-width: 14ch; }
 .lead, .hero-copy p, .top-pick-card p, .architecture-panel p, .modal-card p { color: var(--muted); }
-.lead { max-width: 58ch; font-size: 0.98rem; }
+.lead { max-width: 58ch; font-size: 0.95rem; }
 .search-mode-intro {
   display: grid;
   gap: 0.75rem;
@@ -99,47 +99,12 @@ a { color: inherit; text-decoration: none; }
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(93, 58, 35, 0.08);
 }
-.logo-frame.compact { width: 104px; }
+.logo-frame.compact { width: 92px; }
 .hero-logo { display: block; width: 100%; height: auto; border-radius: 14px; }
-.hero-map-card {
-  border: 1px solid rgba(93, 58, 35, 0.08);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.78);
-  padding: 0.85rem;
-  display: grid;
-  gap: 0.75rem;
-}
-.hero-map-heading {
-  display: grid;
-  gap: 0.18rem;
-}
-.hero-map-shell {
-  min-height: 220px;
-}
-.hero-leaflet-map {
-  width: 100%;
-  height: 220px;
-}
-.hero-map-list {
-  display: grid;
-  gap: 0.5rem;
-}
-.hero-map-list-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.7rem 0.75rem;
-  border-radius: 14px;
-  background: rgba(247, 241, 234, 0.82);
-}
-.hero-map-list-item span {
-  color: var(--muted);
-  white-space: nowrap;
-}
 .search-shell {
-  margin-top: 1.1rem;
-  padding: 0.95rem;
-  border-radius: 20px;
+  margin-top: 0.85rem;
+  padding: 0.85rem;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(93, 58, 35, 0.06);
 }
@@ -203,6 +168,34 @@ a { color: inherit; text-decoration: none; }
   flex-wrap: wrap;
   gap: 0.55rem;
 }
+.status-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-top: 0.95rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid rgba(93, 58, 35, 0.08);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.status-strip strong {
+  color: var(--text);
+}
+.status-indicator {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: var(--olive);
+  box-shadow: 0 0 0 0 rgba(96, 104, 72, 0.28);
+}
+.status-strip.working .status-indicator {
+  background: var(--accent);
+  animation: pulse-status 1.2s infinite;
+}
+.status-strip.ready .status-indicator {
+  background: var(--olive);
+}
 .saved-city-chip {
   border: 1px solid rgba(93, 58, 35, 0.08);
   border-radius: 999px;
@@ -218,7 +211,7 @@ a { color: inherit; text-decoration: none; }
 .cta-secondary { padding: 0.85rem 1.1rem; background: #2f1d14; color: white; font-weight: 700; }
 .status-grid, .metric-row, .top-pick-stats, .external-links { display: grid; gap: 0.65rem; }
 .status-grid { margin-top: 0.95rem; }
-.top-pick-panel, .results-shell, .architecture-panel { padding: 1.05rem; }
+.top-pick-panel, .results-shell { padding: 0.95rem; }
 .top-pick-card {
   display: grid;
   gap: 0.85rem;
@@ -263,8 +256,8 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid rgba(93, 58, 35, 0.08);
 }
 .filter-chip.active { background: var(--olive); color: white; }
-.content-grid { display: grid; gap: 1rem; }
-.results-list { display: grid; gap: 0.9rem; }
+.content-grid { display: grid; gap: 0.85rem; }
+.results-list { display: grid; gap: 0.75rem; }
 .admin-grid { display: grid; gap: 1rem; margin-top: 1rem; }
 .admin-card {
   border: 1px solid var(--line);
@@ -382,7 +375,7 @@ a { color: inherit; text-decoration: none; }
   display: grid;
   gap: 0.7rem;
 }
-.cafe-card, .map-panel, .mini-map-card, .architecture-grid article, .modal-card, .evidence-card {
+.cafe-card, .map-panel, .mini-map-card, .modal-card, .evidence-card {
   border: 1px solid var(--line);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.82);
@@ -470,7 +463,7 @@ a { color: inherit; text-decoration: none; }
 .leaflet-shell { overflow: hidden; border-radius: 18px; border: 1px solid rgba(93, 58, 35, 0.08); }
 .leaflet-map { width: 100%; height: 320px; }
 .map-rail, .architecture-grid, .detail-grid, .evidence-list { display: grid; gap: 0.75rem; }
-.mini-map-card, .architecture-grid article, .evidence-card { padding: 0.85rem; }
+.mini-map-card, .evidence-card { padding: 0.85rem; }
 .review-grid {
   display: grid;
   gap: 0.75rem;
@@ -556,14 +549,17 @@ a { color: inherit; text-decoration: none; }
   text-align: center;
   font-weight: 700;
 }
+@keyframes pulse-status {
+  0% { box-shadow: 0 0 0 0 rgba(164, 74, 43, 0.28); }
+  70% { box-shadow: 0 0 0 10px rgba(164, 74, 43, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(164, 74, 43, 0); }
+}
 @media (min-width: 760px) {
   .app-shell { width: min(1120px, calc(100% - 2rem)); padding-top: 1.15rem; }
-  .hero-panel { padding: 1.45rem; }
+  .hero-panel { padding: 1.15rem 1.25rem; }
   .top-nav { grid-template-columns: auto 1fr; gap: 1rem; }
   .nav-links { justify-content: flex-end; }
-  .logo-frame.compact { width: 118px; }
-  .hero-layout-balanced { grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr); }
-  .hero-copy { padding-right: 0.6rem; }
+  .logo-frame.compact { width: 102px; }
   .mode-select-row { justify-content: flex-end; }
   .manual-search, .status-grid, .top-pick-stats, .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
