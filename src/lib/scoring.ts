@@ -1,13 +1,11 @@
 import type {
   CoffeeShop,
   FilterKey,
-  PersonalReview,
   RankedCoffeeShop,
   SearchLocation,
   SourceCategory
 } from "../types/coffee";
 import { getDistanceMiles } from "./geo";
-import { type PersonalReviewMap } from "./personalReviews";
 
 const categoryMultiplier: Record<SourceCategory, number> = {
   editorial: 1,
@@ -156,8 +154,7 @@ export function applyFilters(
 export function rankCoffeeShops(
   shops: CoffeeShop[],
   location: SearchLocation,
-  filters: FilterKey[],
-  _personalReviews: PersonalReviewMap = {}
+  filters: FilterKey[]
 ): RankedCoffeeShop[] {
   return applyFilters(
     shops.map((shop) => scoreShop(shop, location)),

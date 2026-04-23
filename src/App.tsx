@@ -10,12 +10,10 @@ import { defaultLocation, findMockLocation, mockLocationEntries } from "./data/m
 import { mockCoffeeShops } from "./data/mockCoffeeShops";
 import { enrichCoffeeShopsWithCuratedSignals } from "./lib/curatedEnrichment";
 import { loadCuratedCafeRecords } from "./lib/curatedSourceStore";
-import { loadDiscoveredShops, saveDiscoveredShops } from "./lib/discoveredShops";
 import { getDistanceMiles } from "./lib/geo";
-import { loadPersonalReviews, savePersonalReviews, type PersonalReviewMap } from "./lib/personalReviews";
 import { fetchNearbyCoffeeShops, geocodeLocation, isExcludedLargeChain, reverseGeocodeLocation } from "./lib/liveCoffee";
 import { rankCoffeeShops } from "./lib/scoring";
-import type { CoffeeShop, CuratedCafeRecord, DiscoveredShopDraft, FilterKey, PersonalReview, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
+import type { CoffeeShop, CuratedCafeRecord, FilterKey, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
 
 interface SavedCity {
   label: string;
@@ -272,8 +270,6 @@ function App() {
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
   const [selectedShop, setSelectedShop] = useState<RankedCoffeeShop | null>(null);
   const [shops, setShops] = useState<CoffeeShop[]>([]);
-  const [discoveredShops, setDiscoveredShops] = useState<CoffeeShop[]>(() => loadDiscoveredShops());
-  const [personalReviews, setPersonalReviews] = useState<PersonalReviewMap>(() => loadPersonalReviews());
   const [curatedRecords, setCuratedRecords] = useState<CuratedCafeRecord[]>([]);
   const [curatedRecordsMode, setCuratedRecordsMode] = useState<"supabase" | "local">("local");
   const [curatedRecordsNote, setCuratedRecordsNote] = useState("Using bundled curated source records while the app loads.");
@@ -297,17 +293,16 @@ function App() {
   }, []);
 
   const displayShops = useMemo(() => {
-    const baseShops = [...shops, ...discoveredShops];
-    const yourListShops = buildYourListShops(curatedRecords, resultsLocation, baseShops);
+    const yourListShops = buildYourListShops(curatedRecords, resultsLocation, shops);
     return enrichShopsForDisplay(
-      mergeDuplicateShops([...yourListShops, ...discoveredShops, ...shops]),
+      mergeDuplicateShops([...yourListShops, ...shops]),
       curatedRecords
     );
-  }, [shops, discoveredShops, curatedRecords, resultsLocation]);
+  }, [shops, curatedRecords, resultsLocation]);
 
   const rankedShops = useMemo(() => {
-    return rankCoffeeShops(displayShops, resultsLocation, activeFilters, personalReviews);
-  }, [displayShops, resultsLocation, activeFilters, personalReviews]);
+    return rankCoffeeShops(displayShops, resultsLocation, activeFilters);
+  }, [displayShops, resultsLocation, activeFilters]);
 
   const resetToDefault = useCallback((status = "Use your location or enter a ZIP code/city to begin.") => {
     setLocation(defaultLocation);
@@ -455,14 +450,6 @@ function App() {
   useEffect(() => {
     void refreshCuratedRecords();
   }, [refreshCuratedRecords]);
-
-  useEffect(() => {
-    savePersonalReviews(personalReviews);
-  }, [personalReviews]);
-
-  useEffect(() => {
-    saveDiscoveredShops(discoveredShops);
-  }, [discoveredShops]);
 
   useEffect(() => {
     window.localStorage.setItem(SAVED_CITIES_STORAGE_KEY, JSON.stringify(savedCities));
@@ -684,87 +671,7 @@ function App() {
 
     setGeoStatus(mode === "zip" ? "ZIP code mode selected. Enter a 5-digit ZIP code." : "City mode selected. Enter a city or neighborhood.");
   }
-
-  function handleSavePersonalReview(review: PersonalReview) {
-    setPersonalReviews((current) => ({
-      ...current,
-      [review.shopId]: review
-    }));
-    setGeoStatus(`Saved your grading for ${selectedShop?.name ?? "this cafe"}. Your ranking now reflects it.`);
-  }
-
-  function handleAddDiscoveredShop(draft: DiscoveredShopDraft) {
-    const anchorShop = selectedShopWithReview;
-    const baseLatitude = anchorShop?.latitude ?? resultsLocation.latitude;
-    const baseLongitude = anchorShop?.longitude ?? resultsLocation.longitude;
-    const offsetIndex = discoveredShops.length + 1;
-    const latitudeOffset = offsetIndex * 0.0012;
-    const longitudeOffset = offsetIndex * 0.001;
-
-    const discoveredShop: CoffeeShop = {
-      id: `discovered-${Date.now()}`,
-      name: draft.name.trim(),
-      discoveredByYou: true,
-      neighborhood: draft.neighborhood.trim() || "Discovered nearby",
-      city: draft.city.trim() || selectedShopWithReview?.city || resultsLocation.label,
-      zipCode: draft.zipCode.trim(),
-      latitude: baseLatitude + latitudeOffset,
-      longitude: baseLongitude + longitudeOffset,
-      openNow: true,
-      tags: draft.tags,
-      distanceHintMiles: 0.4,
-      espressoEvidence: draft.espressoScore,
-      pourOverEvidence: draft.pourOverScore,
-      roasterProgram: draft.tags.includes("roaster") ? Math.max(7, draft.beanTransparencyScore) : Math.max(3.5, draft.beanTransparencyScore - 1),
-      credibilitySignals: Math.min(10, (draft.beanTransparencyScore + draft.menuFocusScore + draft.serviceScore) / 3),
-      publicRating: 4.2,
-      sources: [
-        {
-          source: "Your list",
-          category: "community",
-          note: "Added by you as a discovered coffee shop.",
-          weight: 0.9,
-          url: draft.website?.trim() || "https://best-espresso-pour-over-nearby.vercel.app"
-        }
-      ],
-      whyRecommended: "You discovered this coffee shop and added your own grading, so it now appears in your ranked list.",
-      signalNotes: [
-        draft.beanTransparencyScore >= 8 ? "you rated bean transparency highly" : "",
-        draft.menuFocusScore >= 8 ? "you rated the menu as strongly coffee-focused" : "",
-        draft.espressoScore >= 8 ? "you rated the espresso highly" : "",
-        draft.pourOverScore >= 8 ? "you rated the pour-over highly" : ""
-      ].filter(Boolean),
-      avoidNotes: [],
-      penaltySignals: [],
-      externalLinks: draft.website?.trim()
-        ? [{ label: "Website", url: draft.website.trim() }]
-        : []
-    };
-
-    const personalReview: PersonalReview = {
-      shopId: discoveredShop.id,
-      overallScore: draft.overallScore,
-      espressoScore: draft.espressoScore,
-      pourOverScore: draft.pourOverScore,
-      beanTransparencyScore: draft.beanTransparencyScore,
-      menuFocusScore: draft.menuFocusScore,
-      serviceScore: draft.serviceScore,
-      ambianceScore: draft.ambianceScore,
-      wouldReturn: draft.wouldReturn,
-      notes: draft.notes.trim(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setDiscoveredShops((current) => [discoveredShop, ...current]);
-    setPersonalReviews((current) => ({
-      ...current,
-      [discoveredShop.id]: personalReview
-    }));
-    setSelectedShop(null);
-    setGeoStatus(`Added ${discoveredShop.name} to your list. Your own grading now influences where it ranks.`);
-  }
-
-  const selectedShopWithReview = selectedShop
+  const selectedRankedShop = selectedShop
     ? rankedShops.find((shop) => shop.id === selectedShop.id) ?? selectedShop
     : null;
 
@@ -827,7 +734,7 @@ function App() {
         <div className="architecture-grid">
           <article>
             <h3>Simpler interface</h3>
-            <p>The app now uses one dropdown for location mode, with current location as the default and a dedicated reset action.</p>
+            <p>The app now uses direct search buttons for your location, city, or ZIP code, with a dedicated reset action.</p>
           </article>
           <article>
             <h3>Real map</h3>
@@ -845,10 +752,7 @@ function App() {
       <AdminPanel curatedMode={curatedRecordsMode} onSaved={refreshCuratedRecords} />
 
       <CafeDetailModal
-        shop={selectedShopWithReview}
-        personalReview={selectedShopWithReview ? personalReviews[selectedShopWithReview.id] : undefined}
-        onSavePersonalReview={handleSavePersonalReview}
-        onAddDiscoveredShop={handleAddDiscoveredShop}
+        shop={selectedRankedShop}
         onClose={() => setSelectedShop(null)}
       />
     </main>

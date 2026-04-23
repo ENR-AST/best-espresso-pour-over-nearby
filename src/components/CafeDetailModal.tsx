@@ -1,18 +1,11 @@
-import { useEffect, useState } from "react";
-import type { DiscoveredShopDraft, PersonalReview, RankedCoffeeShop } from "../types/coffee";
+import type { RankedCoffeeShop } from "../types/coffee";
 
 interface CafeDetailModalProps {
   shop: RankedCoffeeShop | null;
-  personalReview?: PersonalReview;
-  onSavePersonalReview: (review: PersonalReview) => void;
-  onAddDiscoveredShop: (draft: DiscoveredShopDraft) => void;
   onClose: () => void;
 }
 
-export function CafeDetailModal({ shop, personalReview, onSavePersonalReview, onAddDiscoveredShop, onClose }: CafeDetailModalProps) {
-  useEffect(() => {
-  }, [personalReview, shop?.id]);
-
+export function CafeDetailModal({ shop, onClose }: CafeDetailModalProps) {
   if (!shop) {
     return null;
   }

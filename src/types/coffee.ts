@@ -10,40 +10,6 @@ export type FilterKey = "open-now" | "walkable";
 
 export type SearchMode = "current" | "city" | "zip";
 
-export interface PersonalReview {
-  shopId: string;
-  overallScore: number;
-  espressoScore: number;
-  pourOverScore: number;
-  beanTransparencyScore: number;
-  menuFocusScore: number;
-  serviceScore: number;
-  ambianceScore: number;
-  wouldReturn: boolean;
-  notes: string;
-  updatedAt: string;
-}
-
-export interface DiscoveredShopDraft {
-  name: string;
-  streetAddress?: string;
-  city: string;
-  state?: string;
-  neighborhood: string;
-  zipCode: string;
-  website?: string;
-  tags: Tag[];
-  overallScore: number;
-  espressoScore: number;
-  pourOverScore: number;
-  beanTransparencyScore: number;
-  menuFocusScore: number;
-  serviceScore: number;
-  ambianceScore: number;
-  wouldReturn: boolean;
-  notes: string;
-}
-
 export interface SourceEvidence {
   source: string;
   category: SourceCategory;
@@ -117,6 +83,5 @@ export interface RankedCoffeeShop extends CoffeeShop {
   distanceMiles: number;
   specialtyScore: number;
   supportLabels: string[];
-  personalScore?: number;
   ownerRank?: number;
 }
