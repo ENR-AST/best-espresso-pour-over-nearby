@@ -26,6 +26,42 @@ function similarityScore(left: string, right: string): number {
   return overlap / maxSize;
 }
 
+function normalizeLocationPart(value: string | undefined): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeCompactName(value: string): string {
+  return normalizeName(value).replace(/\s+/g, "");
+}
+
+function isLocationCompatible(shop: CoffeeShop, record: CuratedCafeRecord): boolean {
+  const shopCity = normalizeLocationPart(shop.city);
+  const shopState = normalizeLocationPart(shop.state);
+  const shopStreet = normalizeLocationPart(shop.streetAddress);
+  const recordCity = normalizeLocationPart(record.city);
+  const recordState = normalizeLocationPart(record.state);
+  const recordStreet = normalizeLocationPart(record.streetAddress);
+
+  if (recordStreet && shopStreet && recordStreet === shopStreet) {
+    return true;
+  }
+
+  if (recordCity && shopCity && recordCity !== shopCity) {
+    return false;
+  }
+
+  if (recordState && shopState && recordState !== shopState) {
+    return false;
+  }
+
+  return true;
+}
+
 function mergeSources(current: SourceEvidence[], incoming: SourceEvidence[]): SourceEvidence[] {
   const byKey = new Map<string, SourceEvidence>();
 
@@ -72,10 +108,22 @@ function buildCuratedReason(current: string, records: CuratedCafeRecord[]): stri
 
 function getMatchingRecords(shop: CoffeeShop, records: CuratedCafeRecord[]): CuratedCafeRecord[] {
   const normalizedShopName = normalizeName(shop.name);
+  const compactShopName = normalizeCompactName(shop.name);
 
   return records.filter((record) => {
-    const score = similarityScore(normalizedShopName, normalizeName(record.cafeName));
-    return score >= 0.55;
+    if (!isLocationCompatible(shop, record)) {
+      return false;
+    }
+
+    const normalizedRecordName = normalizeName(record.cafeName);
+    const compactRecordName = normalizeCompactName(record.cafeName);
+    const score = similarityScore(normalizedShopName, normalizedRecordName);
+    const compactMatch =
+      compactShopName === compactRecordName ||
+      compactShopName.includes(compactRecordName) ||
+      compactRecordName.includes(compactShopName);
+
+    return compactMatch || score >= 0.7;
   });
 }
 

@@ -47,6 +47,51 @@ const EXCLUDED_CHAIN_PATTERNS = [
   /\bphilz\b/i
 ];
 
+function normalizeIdentityPart(value: string | undefined): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeNameFingerprint(name: string | undefined): string {
+  return normalizeIdentityPart(name)
+    .replace(/\bcoffee\b/g, "")
+    .replace(/\broasters\b/g, "")
+    .replace(/\broastery\b/g, "")
+    .replace(/\bcafe\b/g, "")
+    .replace(/\blane\b/g, "")
+    .replace(/\s+/g, "");
+}
+
+function getLiveDedupeKey(shop: CoffeeShop): string {
+  const normalizedName = normalizeNameFingerprint(shop.name);
+  const normalizedStreet = normalizeIdentityPart(shop.streetAddress);
+  const normalizedCity = normalizeIdentityPart(shop.city);
+  const normalizedState = normalizeIdentityPart(shop.state);
+
+  return [normalizedName, normalizedStreet || normalizedCity, normalizedState].filter(Boolean).join("|");
+}
+
+function pickPreferredLiveShop(left: CoffeeShop, right: CoffeeShop): CoffeeShop {
+  const leftCompleteness = [left.streetAddress, left.city, left.state, left.zipCode].filter(Boolean).length;
+  const rightCompleteness = [right.streetAddress, right.city, right.state, right.zipCode].filter(Boolean).length;
+
+  if (leftCompleteness !== rightCompleteness) {
+    return leftCompleteness > rightCompleteness ? left : right;
+  }
+
+  const leftEvidence = left.sources.length + (left.signalNotes?.length ?? 0);
+  const rightEvidence = right.sources.length + (right.signalNotes?.length ?? 0);
+  if (leftEvidence !== rightEvidence) {
+    return leftEvidence > rightEvidence ? left : right;
+  }
+
+  return left;
+}
+
 function safeNumber(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number(value);
@@ -393,7 +438,15 @@ out center tags 24;
       for (const element of elements) {
         const shop = toCoffeeShop(element, location);
         if (!shop) continue;
-        if (!deduped.has(shop.name.toLowerCase())) deduped.set(shop.name.toLowerCase(), shop);
+        const key = getLiveDedupeKey(shop);
+        const existing = deduped.get(key);
+
+        if (!existing) {
+          deduped.set(key, shop);
+          continue;
+        }
+
+        deduped.set(key, pickPreferredLiveShop(existing, shop));
       }
 
       return Array.from(deduped.values()).slice(0, 24);

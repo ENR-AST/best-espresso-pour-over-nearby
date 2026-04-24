@@ -70,12 +70,23 @@ function normalizeShopKey(shop: CoffeeShop): string {
     (value ?? "")
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ");
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const normalizeName = (value: string | undefined) =>
+    normalize(value)
+      .replace(/\bcoffee\b/g, "")
+      .replace(/\broasters\b/g, "")
+      .replace(/\broastery\b/g, "")
+      .replace(/\bcafe\b/g, "")
+      .replace(/\blane\b/g, "")
+      .replace(/\s+/g, "");
 
   const normalizedStreet = normalize(shop.streetAddress);
   const normalizedCity = normalize(shop.city);
   const normalizedState = normalize(shop.state);
-  const normalizedName = normalize(shop.name);
+  const normalizedName = normalizeName(shop.name);
 
   return [normalizedName, normalizedStreet || normalize(shop.neighborhood), normalizedCity, normalizedState]
     .filter(Boolean)
@@ -220,11 +231,22 @@ function normalizeRankedShopIdentity(shop: RankedCoffeeShop): string {
     (value ?? "")
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ");
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const normalizeName = (value: string | undefined) =>
+    normalize(value)
+      .replace(/\bcoffee\b/g, "")
+      .replace(/\broasters\b/g, "")
+      .replace(/\broastery\b/g, "")
+      .replace(/\bcafe\b/g, "")
+      .replace(/\blane\b/g, "")
+      .replace(/\s+/g, "");
 
   return [
-    normalize(shop.name),
-    normalize(shop.city),
+    normalizeName(shop.name),
+    normalize(shop.streetAddress) || normalize(shop.city),
     normalize(shop.state) || normalize(shop.neighborhood)
   ]
     .filter(Boolean)
