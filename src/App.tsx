@@ -981,6 +981,7 @@ function App() {
           onAddSavedCity={handleAddSavedCity}
           searchMode={searchMode}
           geoStatus={geoStatus}
+          currentLocationLabel={resultsLocation.label}
           logoSrc={waliEspressoLogo}
           isLoading={isLoading}
           savedCities={savedCities}

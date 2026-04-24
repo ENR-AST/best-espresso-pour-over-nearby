@@ -16,6 +16,7 @@ interface LocationPanelProps {
   onAddSavedCity: (cityValue: string) => void;
   searchMode: SearchMode;
   geoStatus: string;
+  currentLocationLabel: string;
   logoSrc: string;
   isLoading: boolean;
   savedCities: SavedCity[];
@@ -32,6 +33,7 @@ export function LocationPanel({
   onAddSavedCity,
   searchMode,
   geoStatus,
+  currentLocationLabel,
   logoSrc,
   isLoading,
   savedCities
@@ -53,7 +55,7 @@ export function LocationPanel({
           </div>
           <div className="nav-brand">
             <span className="nav-mark">Wali Espresso</span>
-            <span className="nav-subtitle">Specialty coffee finder</span>
+            <span className="nav-subtitle">Espresso and pour over nearby</span>
           </div>
         </div>
 
@@ -61,7 +63,7 @@ export function LocationPanel({
 
       <div className="hero-layout hero-layout-compact">
         <div className="hero-copy">
-          <p className="eyebrow">Best Espresso & Pour Over Nearby</p>
+          <p className="eyebrow">Specialty Coffee Nearby</p>
           <h1>Coffe Near You</h1>
           <div className="lead search-mode-intro">
             <span className="search-mode-label">Search coffe by:</span>
@@ -93,18 +95,23 @@ export function LocationPanel({
       </div>
 
       <div className="search-shell">
-        <div className="mode-select-row">
-          <button className="action-button reset" onClick={onReset} type="button">
-            Reset
-          </button>
+        <div className="search-context-row">
+          <div className="search-context-card">
+            <span className="status-label">Searching in</span>
+            <strong>{currentLocationLabel}</strong>
+          </div>
         </div>
 
         {searchMode === "current" ? (
           <div className="current-location-panel">
-            <p className="current-location-copy">Choose how you want to start: use your location, or switch to ZIP code/city search above.</p>
-            <button className="action-button primary wide" onClick={onUseMyLocation} disabled={isLoading}>
-              {isLoading ? "Finding coffee..." : "Use my location"}
-            </button>
+            <div className="search-action-row">
+              <button className="action-button primary" onClick={onUseMyLocation} disabled={isLoading}>
+                {isLoading ? "Finding coffee..." : "Use my location"}
+              </button>
+              <button className="action-button reset" onClick={onReset} type="button">
+                Reset
+              </button>
+            </div>
           </div>
         ) : (
           <div className="manual-search">
@@ -114,29 +121,33 @@ export function LocationPanel({
               onChange={(event) => onInputChange(event.target.value)}
               placeholder={placeholder}
             />
-            <button className="cta-secondary" onClick={onSearch} disabled={isLoading}>
-              {isLoading ? "Searching..." : "Search"}
-            </button>
-            {searchMode === "city" ? (
-              <button
-                className="action-button add-city-button"
-                onClick={handleAddSavedCity}
-                disabled={!locationInput.trim() || isLoading}
-                type="button"
-              >
-                Add city to My Cities
+            <div className="search-action-row">
+              <button className="cta-secondary" onClick={onSearch} disabled={isLoading}>
+                {isLoading ? "Searching..." : "Search"}
               </button>
-            ) : null}
+              {searchMode === "city" ? (
+                <button
+                  className="action-button add-city-button"
+                  onClick={handleAddSavedCity}
+                  disabled={!locationInput.trim() || isLoading}
+                  type="button"
+                >
+                  Add city
+                </button>
+              ) : null}
+              <button className="action-button reset" onClick={onReset} type="button">
+                Reset
+              </button>
+            </div>
           </div>
         )}
 
         <div className="saved-cities-panel">
-          <div className="saved-cities-header">
+          <div className="saved-cities-header compact">
             <div>
               <span className="status-label">My cities</span>
-              <strong>Home and travel shortcuts</strong>
+              <strong>Quick search</strong>
             </div>
-            <span className="saved-cities-hint">Tap one to search instantly, or add a new city while traveling.</span>
           </div>
           <div className="saved-cities-row">
             {savedCities.map((city) => (

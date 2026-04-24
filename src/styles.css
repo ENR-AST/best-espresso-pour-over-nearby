@@ -69,10 +69,10 @@ a { color: inherit; text-decoration: none; }
 }
 .hero-copy h1 { font-size: clamp(1.55rem, 3vw, 2.35rem); max-width: 14ch; }
 .lead, .hero-copy p, .top-pick-card p, .architecture-panel p, .modal-card p { color: var(--muted); }
-.lead { max-width: 58ch; font-size: 0.95rem; }
+.lead { max-width: 58ch; font-size: 0.92rem; }
 .search-mode-intro {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.6rem;
   max-width: none;
 }
 .search-mode-label {
@@ -102,25 +102,38 @@ a { color: inherit; text-decoration: none; }
 .logo-frame.compact { width: 92px; }
 .hero-logo { display: block; width: 100%; height: auto; border-radius: 14px; }
 .search-shell {
-  margin-top: 0.85rem;
-  padding: 0.85rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(93, 58, 35, 0.06);
 }
-.mode-select-row {
+.search-context-row {
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 0.85rem;
+  justify-content: flex-start;
+  margin-bottom: 0.75rem;
+}
+.search-context-card {
+  display: inline-grid;
+  gap: 0.12rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 16px;
+  background: rgba(247, 241, 234, 0.9);
+  border: 1px solid rgba(93, 58, 35, 0.06);
 }
 .current-location-panel {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.55rem;
 }
 .current-location-copy {
   margin: 0;
   color: var(--muted);
   font-size: 0.95rem;
+}
+.search-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 .action-button, .cta-secondary, .details-link, .close-button, .filter-chip {
   border: none;
@@ -136,7 +149,7 @@ a { color: inherit; text-decoration: none; }
 .action-button.reset { background: rgba(47, 29, 20, 0.06); }
 .action-button.wide { width: 100%; }
 .action-button:hover, .cta-secondary:hover, .details-link:hover, .filter-chip:hover, .close-button:hover { transform: translateY(-1px); }
-.manual-search { display: grid; grid-template-columns: 1fr; gap: 0.7rem; margin-top: 0.2rem; }
+.manual-search { display: grid; grid-template-columns: 1fr; gap: 0.6rem; margin-top: 0.1rem; }
 .add-city-button {
   background: rgba(96, 104, 72, 0.1);
   color: var(--olive);
@@ -149,15 +162,18 @@ a { color: inherit; text-decoration: none; }
   background: rgba(255, 255, 255, 0.96);
 }
 .saved-cities-panel {
-  margin-top: 0.95rem;
-  padding-top: 0.95rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
   border-top: 1px solid rgba(93, 58, 35, 0.08);
   display: grid;
-  gap: 0.75rem;
+  gap: 0.6rem;
 }
 .saved-cities-header {
   display: grid;
   gap: 0.35rem;
+}
+.saved-cities-header.compact {
+  gap: 0.12rem;
 }
 .saved-cities-hint {
   color: var(--muted);
@@ -173,11 +189,11 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   gap: 0.55rem;
   flex-wrap: wrap;
-  margin-top: 0.95rem;
-  padding-top: 0.95rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
   border-top: 1px solid rgba(93, 58, 35, 0.08);
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
 }
 .status-strip strong {
   color: var(--text);
@@ -224,7 +240,7 @@ a { color: inherit; text-decoration: none; }
 .cta-secondary { padding: 0.85rem 1.1rem; background: #2f1d14; color: white; font-weight: 700; }
 .status-grid, .metric-row, .top-pick-stats, .external-links { display: grid; gap: 0.65rem; }
 .status-grid { margin-top: 0.95rem; }
-.top-pick-panel, .results-shell { padding: 0.95rem; }
+.top-pick-panel, .results-shell { padding: 0.9rem; }
 .top-pick-card {
   display: grid;
   gap: 0.85rem;
@@ -265,7 +281,7 @@ a { color: inherit; text-decoration: none; }
 }
 .results-badge.live { background: rgba(96, 104, 72, 0.14); color: var(--olive); }
 .results-badge.fallback { background: rgba(164, 74, 43, 0.12); color: var(--accent); }
-.filter-bar { display: flex; gap: 0.55rem; overflow-x: auto; padding-bottom: 0.3rem; margin: 0.95rem 0 1rem; }
+.filter-bar { display: flex; gap: 0.55rem; overflow-x: auto; padding-bottom: 0.3rem; margin: 0.8rem 0 0.9rem; }
 .filter-chip {
   padding: 0.72rem 0.95rem;
   background: rgba(255, 255, 255, 0.9);
@@ -274,26 +290,26 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid rgba(93, 58, 35, 0.08);
 }
 .filter-chip.active { background: var(--olive); color: white; }
-.content-grid { display: grid; gap: 0.85rem; }
-.results-list { display: grid; gap: 0.75rem; }
+.content-grid { display: grid; gap: 0.8rem; }
+.results-list { display: grid; gap: 0.65rem; }
 .my-coffees-shell {
-  margin-bottom: 1rem;
-  padding: 0.95rem;
+  margin-bottom: 0.9rem;
+  padding: 0.85rem;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(93, 58, 35, 0.06);
 }
 .my-coffee-columns {
   display: grid;
-  gap: 0.85rem;
-  margin-top: 0.85rem;
+  gap: 0.75rem;
+  margin-top: 0.7rem;
 }
 .my-coffee-column {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.55rem;
 }
 .compact-results-list .cafe-card {
-  padding: 0.8rem;
+  padding: 0.7rem;
 }
 .admin-grid { display: grid; gap: 1rem; margin-top: 1rem; }
 .admin-card {
@@ -417,13 +433,28 @@ a { color: inherit; text-decoration: none; }
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.82);
 }
-.cafe-card { padding: 0.95rem; }
+.cafe-card { padding: 0.8rem; }
 .cafe-title-row {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 1.02rem;
 }
-.address-line { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.9rem; }
+.address-line {
+  margin: 0.38rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.personal-score-line {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.details-link.compact {
+  margin-top: 0.7rem;
+  padding: 0.75rem 0.95rem;
+}
 .discovered-badge {
   display: inline-grid;
   place-items: center;
@@ -455,11 +486,6 @@ a { color: inherit; text-decoration: none; }
 .score-pill strong {
   font-size: 1.1rem;
   line-height: 1;
-}
-.personal-score-line {
-  margin: 0.8rem 0 0;
-  color: var(--muted);
-  font-size: 0.9rem;
 }
 .support-row { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.75rem; }
 .source-badge, .support-badge {
