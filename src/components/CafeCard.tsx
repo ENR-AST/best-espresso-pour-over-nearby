@@ -1,4 +1,3 @@
-import waliEspressoLogo from "../assets/wali-espresso.png";
 import type { RankedCoffeeShop } from "../types/coffee";
 
 interface CafeCardProps {
@@ -61,7 +60,7 @@ export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
             <span>{shop.name}</span>
             {isDiscoveredShop ? (
               <span className="discovered-badge" aria-label="Discovered by you" title="Discovered by you">
-                <img src={waliEspressoLogo} alt="" className="discovered-badge-logo" />
+                ✓
               </span>
             ) : null}
           </h3>
