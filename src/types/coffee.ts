@@ -8,7 +8,7 @@ export type Tag = "espresso" | "pour-over" | "roaster" | "specialty";
 
 export type FilterKey = "open-now" | "walkable";
 
-export type SearchMode = "city" | "zip";
+export type SearchMode = "current" | "city" | "zip";
 
 export interface SourceEvidence {
   source: string;
@@ -23,8 +23,13 @@ export interface CuratedCafeRecord {
   sourceName: string;
   category: SourceCategory;
   cafeName: string;
+  streetAddress?: string;
   city?: string;
+  state?: string;
   neighborhood?: string;
+  zipCode?: string;
+  latitude?: number;
+  longitude?: number;
   confidence: number;
   tags: Tag[];
   evidenceNote: string;
@@ -33,13 +38,21 @@ export interface CuratedCafeRecord {
   pourOverBoost?: number;
   roasterBoost?: number;
   credibilityBoost?: number;
+  coffeeFocusBoost?: number;
+  transparencyBoost?: number;
+  penaltySignals?: string[];
+  signalNotes?: string[];
+  avoidNotes?: string[];
 }
 
 export interface CoffeeShop {
   id: string;
   name: string;
+  discoveredByYou?: boolean;
+  streetAddress?: string;
   neighborhood: string;
   city: string;
+  state?: string;
   zipCode: string;
   latitude: number;
   longitude: number;
@@ -54,6 +67,9 @@ export interface CoffeeShop {
   sources: SourceEvidence[];
   whyRecommended: string;
   externalLinks: { label: string; url: string }[];
+  signalNotes?: string[];
+  avoidNotes?: string[];
+  penaltySignals?: string[];
 }
 
 export interface SearchLocation {
@@ -67,4 +83,5 @@ export interface RankedCoffeeShop extends CoffeeShop {
   distanceMiles: number;
   specialtyScore: number;
   supportLabels: string[];
+  ownerRank?: number;
 }

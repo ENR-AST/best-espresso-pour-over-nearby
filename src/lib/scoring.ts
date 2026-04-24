@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   CoffeeShop,
   FilterKey,
   RankedCoffeeShop,
@@ -31,6 +31,25 @@ function getDistanceScore(distanceMiles: number): number {
   return 2;
 }
 
+function getCoffeeFocusBonus(shop: CoffeeShop): number {
+  const signalCount = shop.signalNotes?.length ?? 0;
+  const avoidCount = shop.avoidNotes?.length ?? 0;
+
+  return Math.min(signalCount * 1.3 + avoidCount * 0.4, 8);
+}
+
+function getPenaltyScore(shop: CoffeeShop): number {
+  const explicitPenalties = shop.penaltySignals?.length ?? 0;
+  const avoidCount = shop.avoidNotes?.length ?? 0;
+  const genericMenuPenalty = !shop.tags.includes("pour-over") && !shop.tags.includes("roaster") ? 2.5 : 0;
+  const weakCoffeeFocusPenalty =
+    shop.espressoEvidence < 5.5 && shop.pourOverEvidence < 5.5 ? 3.5 : 0;
+  const genericSupportPenalty =
+    shop.sources.every((source) => source.category === "public-review") ? 2.8 : 0;
+
+  return explicitPenalties * 2.2 + avoidCount * 0.8 + genericMenuPenalty + weakCoffeeFocusPenalty + genericSupportPenalty;
+}
+
 export function getSupportLabels(shop: CoffeeShop): string[] {
   const labels = new Set<string>();
 
@@ -42,6 +61,33 @@ export function getSupportLabels(shop: CoffeeShop): string[] {
   }
 
   return Array.from(labels);
+}
+
+function getOwnerRank(shop: CoffeeShop): number | undefined {
+  const ranks = (shop.signalNotes ?? [])
+    .filter((note) => /your overall rank is/i.test(note))
+    .map((note) => {
+      const match100 = note.match(/(\d+(?:\.\d+)?)\/100/);
+      if (match100) {
+        const parsed = Number(match100[1]);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      }
+
+      const match10 = note.match(/(\d+(?:\.\d+)?)\/10/);
+      if (match10) {
+        const parsed = Number(match10[1]);
+        return Number.isFinite(parsed) ? parsed * 10 : undefined;
+      }
+
+      return undefined;
+    })
+    .filter((rank): rank is number => rank !== undefined);
+
+  if (ranks.length === 0) {
+    return undefined;
+  }
+
+  return Math.max(...ranks);
 }
 
 export function scoreShop(
@@ -62,16 +108,35 @@ export function scoreShop(
   const credibility = shop.credibilitySignals * 1.6;
   const distance = getDistanceScore(distanceMiles);
   const publicRating = shop.publicRating * 0.9;
+  const coffeeFocusBonus = getCoffeeFocusBonus(shop);
+  const penaltyScore = getPenaltyScore(shop);
+  const ownerRank = getOwnerRank(shop);
+  const ownerInfluence = ownerRank !== undefined ? ownerRank * 0.45 : 0;
+  const reviewedCafeBonus = ownerRank !== undefined ? 10 : 0;
 
-  const specialtyScore = Math.round(
-    sourceSupport + espresso + pourOver + roaster + credibility + distance + publicRating
-  );
+  const rawScore =
+    sourceSupport +
+      espresso +
+      pourOver +
+      roaster +
+      credibility +
+      distance +
+      publicRating +
+      coffeeFocusBonus +
+      ownerInfluence +
+      reviewedCafeBonus -
+      penaltyScore;
+  const specialtyScore =
+    ownerRank !== undefined
+      ? Math.max(0, Math.min(100, Math.round(ownerRank)))
+      : Math.max(0, Math.min(100, Math.round(rawScore)));
 
   return {
     ...shop,
     distanceMiles,
     specialtyScore,
-    supportLabels: getSupportLabels(shop)
+    supportLabels: getSupportLabels(shop),
+    ownerRank
   };
 }
 
@@ -85,7 +150,7 @@ export function applyFilters(
         case "open-now":
           return shop.openNow;
         case "walkable":
-          return shop.distanceMiles <= 1.2;
+          return shop.distanceMiles <= 0.5;
         default:
           return true;
       }
@@ -102,6 +167,13 @@ export function rankCoffeeShops(
     shops.map((shop) => scoreShop(shop, location)),
     filters
   ).sort((a, b) => {
+    const aIsYourSelection = a.discoveredByYou || a.ownerRank !== undefined;
+    const bIsYourSelection = b.discoveredByYou || b.ownerRank !== undefined;
+
+    if (aIsYourSelection !== bIsYourSelection) {
+      return aIsYourSelection ? -1 : 1;
+    }
+
     if (b.specialtyScore !== a.specialtyScore) {
       return b.specialtyScore - a.specialtyScore;
     }

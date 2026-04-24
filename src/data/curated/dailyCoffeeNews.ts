@@ -14,7 +14,13 @@ export const dailyCoffeeNewsRecords: CuratedCafeRecord[] = [
     sourceUrl: "https://dailycoffeenews.com",
     pourOverBoost: 1.3,
     roasterBoost: 1.4,
-    credibilityBoost: 1.1
+    credibilityBoost: 1.1,
+    coffeeFocusBoost: 0.8,
+    transparencyBoost: 0.9,
+    signalNotes: [
+      "single-origin pour-over program with traceable sourcing",
+      "roast and origin transparency visible to the customer"
+    ]
   },
   {
     sourceId: "daily-coffee-news",
@@ -29,7 +35,13 @@ export const dailyCoffeeNewsRecords: CuratedCafeRecord[] = [
     sourceUrl: "https://dailycoffeenews.com",
     espressoBoost: 1,
     roasterBoost: 1.4,
-    credibilityBoost: 1
+    credibilityBoost: 1,
+    coffeeFocusBoost: 0.9,
+    transparencyBoost: 0.8,
+    signalNotes: [
+      "freshness and sourcing are treated as part of the core coffee offer",
+      "the menu stays centered on coffee rather than sugary drink sprawl"
+    ]
   },
   {
     sourceId: "daily-coffee-news",
@@ -45,7 +57,13 @@ export const dailyCoffeeNewsRecords: CuratedCafeRecord[] = [
     espressoBoost: 1.1,
     pourOverBoost: 1.1,
     roasterBoost: 1.4,
-    credibilityBoost: 1.1
+    credibilityBoost: 1.1,
+    coffeeFocusBoost: 0.8,
+    transparencyBoost: 0.7,
+    signalNotes: [
+      "manual brew and espresso both receive serious attention",
+      "flavor notes help communicate what is in the cup"
+    ]
   },
   {
     sourceId: "daily-coffee-news",
@@ -60,6 +78,12 @@ export const dailyCoffeeNewsRecords: CuratedCafeRecord[] = [
     sourceUrl: "https://dailycoffeenews.com",
     pourOverBoost: 1.2,
     roasterBoost: 1.5,
-    credibilityBoost: 1.2
+    credibilityBoost: 1.2,
+    coffeeFocusBoost: 0.9,
+    transparencyBoost: 0.8,
+    signalNotes: [
+      "coffee-first menu design over broad beverage clutter",
+      "manual brew options reflect intentional sourcing and preparation"
+    ]
   }
 ];

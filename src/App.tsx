@@ -4,17 +4,78 @@ import { CafeDetailModal } from "./components/CafeDetailModal";
 import { FilterBar } from "./components/FilterBar";
 import { LocationPanel } from "./components/LocationPanel";
 import { MapCardRail } from "./components/MapCardRail";
+import { AdminPanel } from "./components/AdminPanel";
 import waliEspressoLogo from "./assets/wali-espresso.png";
 import { defaultLocation, findMockLocation, mockLocationEntries } from "./data/mockLocations";
 import { mockCoffeeShops } from "./data/mockCoffeeShops";
 import { enrichCoffeeShopsWithCuratedSignals } from "./lib/curatedEnrichment";
+import { loadCuratedCafeRecords } from "./lib/curatedSourceStore";
 import { getDistanceMiles } from "./lib/geo";
-import { fetchNearbyCoffeeShops, geocodeLocation } from "./lib/liveCoffee";
+import {
+  loadSavedCitiesFromStorage,
+  loadSavedCitiesFromSupabase,
+  saveSavedCitiesToStorage,
+  saveSavedCitiesToSupabase,
+  type SavedCity
+} from "./lib/savedCities";
+import { fetchNearbyCoffeeShops, geocodeLocation, isExcludedLargeChain, reverseGeocodeLocation } from "./lib/liveCoffee";
 import { rankCoffeeShops } from "./lib/scoring";
-import type { CoffeeShop, FilterKey, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
+import type { CoffeeShop, CuratedCafeRecord, FilterKey, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
+
+const defaultSavedCities: SavedCity[] = [
+  { label: "Jersey City", value: "Jersey City, NJ" },
+  { label: "New York City", value: "New York City, NY" },
+  { label: "Bethesda", value: "Bethesda, MD" },
+  { label: "Venice", value: "Venice, FL" }
+];
 
 function normalizeQuery(value: string): string {
   return value.trim();
+}
+
+function normalizeIdentityText(value: string | undefined): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenizeIdentityText(value: string | undefined): string[] {
+  return normalizeIdentityText(value)
+    .split(" ")
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 2);
+}
+
+function buildNameFingerprint(
+  name: string | undefined,
+  context: Array<string | undefined>
+): string {
+  const blockedWords = new Set([
+    "coffee",
+    "roasters",
+    "roastery",
+    "cafe",
+    "lane",
+    "espresso",
+    ...context.flatMap((value) => tokenizeIdentityText(value))
+  ]);
+
+  const parts = tokenizeIdentityText(name).filter((part) => !blockedWords.has(part));
+  return parts.join("");
+}
+
+function normalizeSavedCityValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function createSavedCityLabel(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
 function getNearestPrototypeMarket(latitude: number, longitude: number): SearchLocation {
@@ -32,49 +93,531 @@ function getNearestPrototypeMarket(latitude: number, longitude: number): SearchL
   };
 }
 
-function enrichShopsForDisplay(shops: CoffeeShop[]): CoffeeShop[] {
-  return enrichCoffeeShopsWithCuratedSignals(shops);
+function enrichShopsForDisplay(shops: CoffeeShop[], curatedRecords: CuratedCafeRecord[]): CoffeeShop[] {
+  return enrichCoffeeShopsWithCuratedSignals(shops, curatedRecords).filter(
+    (shop) => !isExcludedLargeChain(shop.name)
+  );
+}
+
+function normalizeShopKey(shop: CoffeeShop): string {
+  const normalizedStreet = normalizeIdentityText(shop.streetAddress);
+  const normalizedCity = normalizeIdentityText(shop.city);
+  const normalizedState = normalizeIdentityText(shop.state);
+  const normalizedNeighborhood = normalizeIdentityText(shop.neighborhood);
+  const normalizedName = buildNameFingerprint(shop.name, [
+    shop.city,
+    shop.state,
+    shop.neighborhood,
+    shop.streetAddress
+  ]);
+
+  return [normalizedName, normalizedStreet || normalizedNeighborhood || normalizedCity, normalizedState]
+    .filter(Boolean)
+    .join("|");
+}
+
+function mergeUniqueStrings(current: string[] = [], incoming: string[] = []) {
+  return Array.from(new Set([...current, ...incoming].filter(Boolean)));
+}
+
+function extractOwnerRankFromShop(shop: CoffeeShop): number {
+  const ranks = (shop.signalNotes ?? [])
+    .filter((note) => /your overall rank is/i.test(note))
+    .map((note) => {
+      const match100 = note.match(/(\d+(?:\.\d+)?)\/100/);
+      if (match100) {
+        const parsed = Number(match100[1]);
+        return Number.isFinite(parsed) ? parsed : -1;
+      }
+
+      const match10 = note.match(/(\d+(?:\.\d+)?)\/10/);
+      if (match10) {
+        const parsed = Number(match10[1]);
+        return Number.isFinite(parsed) ? parsed * 10 : -1;
+      }
+
+      return -1;
+    })
+    .filter((rank) => rank >= 0);
+
+  return ranks.length > 0 ? Math.max(...ranks) : -1;
+}
+
+function pickPreferredShop(left: CoffeeShop, right: CoffeeShop): CoffeeShop {
+  const leftRank = extractOwnerRankFromShop(left);
+  const rightRank = extractOwnerRankFromShop(right);
+  const leftIsYours = left.id.startsWith("your-list-") || left.discoveredByYou || leftRank >= 0;
+  const rightIsYours = right.id.startsWith("your-list-") || right.discoveredByYou || rightRank >= 0;
+
+  if (leftIsYours !== rightIsYours) {
+    return leftIsYours ? left : right;
+  }
+
+  if (leftRank !== rightRank) {
+    return leftRank > rightRank ? left : right;
+  }
+
+  const leftCompleteness = [left.streetAddress, left.city, left.state, left.zipCode].filter(Boolean).length;
+  const rightCompleteness = [right.streetAddress, right.city, right.state, right.zipCode].filter(Boolean).length;
+  if (leftCompleteness !== rightCompleteness) {
+    return leftCompleteness > rightCompleteness ? left : right;
+  }
+
+  const leftSourceCount = left.sources.length;
+  const rightSourceCount = right.sources.length;
+  if (leftSourceCount !== rightSourceCount) {
+    return leftSourceCount > rightSourceCount ? left : right;
+  }
+
+  return left;
+}
+
+function mergeDuplicateShops(shops: CoffeeShop[]): CoffeeShop[] {
+  const grouped = new Map<string, CoffeeShop>();
+
+  for (const shop of shops) {
+    const key = normalizeShopKey(shop);
+    const existing = grouped.get(key);
+
+    if (!existing) {
+      grouped.set(key, shop);
+      continue;
+    }
+
+    const preferred = pickPreferredShop(existing, shop);
+    const secondary = preferred === existing ? shop : existing;
+
+    grouped.set(key, {
+      ...secondary,
+      ...preferred,
+      streetAddress: preferred.streetAddress || secondary.streetAddress,
+      neighborhood: preferred.neighborhood || secondary.neighborhood,
+      city: preferred.city || secondary.city,
+      state: preferred.state || secondary.state,
+      zipCode: preferred.zipCode || secondary.zipCode,
+      latitude: preferred.latitude ?? secondary.latitude,
+      longitude: preferred.longitude ?? secondary.longitude,
+      tags: Array.from(new Set([...preferred.tags, ...secondary.tags])),
+      sources: Array.from(
+        new Map(
+          [...preferred.sources, ...secondary.sources].map((source) => [
+            `${source.source}|${source.note}|${source.url}`,
+            source
+          ])
+        ).values()
+      ),
+      signalNotes: mergeUniqueStrings(preferred.signalNotes, secondary.signalNotes),
+      avoidNotes: mergeUniqueStrings(preferred.avoidNotes, secondary.avoidNotes),
+      penaltySignals: mergeUniqueStrings(preferred.penaltySignals, secondary.penaltySignals),
+      externalLinks: Array.from(
+        new Map(
+          [...preferred.externalLinks, ...secondary.externalLinks].map((link) => [
+            `${link.label}|${link.url}`,
+            link
+          ])
+        ).values()
+      )
+    });
+  }
+
+  return Array.from(grouped.values());
+}
+
+function splitSelectedCoffeeGroups(shops: RankedCoffeeShop[]) {
+  const bestEspresso: RankedCoffeeShop[] = [];
+  const bestPourOver: RankedCoffeeShop[] = [];
+
+  for (const shop of shops) {
+    const hasEspresso = shop.tags.includes("espresso");
+    const hasPourOver = shop.tags.includes("pour-over");
+
+    if (hasEspresso && hasPourOver) {
+      if (shop.espressoEvidence >= shop.pourOverEvidence) {
+        bestEspresso.push(shop);
+      } else {
+        bestPourOver.push(shop);
+      }
+      continue;
+    }
+
+    if (hasEspresso) {
+      bestEspresso.push(shop);
+      continue;
+    }
+
+    if (hasPourOver) {
+      bestPourOver.push(shop);
+    }
+  }
+
+  return { bestEspresso, bestPourOver };
+}
+
+function normalizeRankedShopIdentity(shop: RankedCoffeeShop): string {
+  const normalizedStreet = normalizeIdentityText(shop.streetAddress);
+  const normalizedCity = normalizeIdentityText(shop.city);
+  const normalizedState = normalizeIdentityText(shop.state);
+  const normalizedNeighborhood = normalizeIdentityText(shop.neighborhood);
+  const normalizedName = buildNameFingerprint(shop.name, [
+    shop.city,
+    shop.state,
+    shop.neighborhood,
+    shop.streetAddress
+  ]);
+  const isYourSelection = shop.discoveredByYou || shop.ownerRank !== undefined;
+
+  return [
+    normalizedName,
+    isYourSelection ? normalizedCity : normalizedStreet || normalizedNeighborhood || normalizedCity,
+    isYourSelection ? "" : normalizedState
+  ]
+    .filter(Boolean)
+    .join("|");
+}
+
+function normalizeRecordIdentity(record: CuratedCafeRecord): string {
+  const normalizedStreet = normalizeIdentityText(record.streetAddress);
+  const normalizedCity = normalizeIdentityText(record.city);
+  const normalizedState = normalizeIdentityText(record.state);
+  const normalizedNeighborhood = normalizeIdentityText(record.neighborhood);
+  const normalizedName = buildNameFingerprint(record.cafeName, [
+    record.city,
+    record.state,
+    record.neighborhood,
+    record.streetAddress
+  ]);
+
+  return [normalizedName, normalizedStreet || normalizedNeighborhood || normalizedCity, normalizedState]
+    .filter(Boolean)
+    .join("|");
+}
+
+function normalizeYourListRecordIdentity(record: CuratedCafeRecord): string {
+  const normalizedCity = normalizeIdentityText(record.city);
+  const normalizedName = buildNameFingerprint(record.cafeName, [
+    record.city,
+    record.state,
+    record.neighborhood,
+    record.streetAddress
+  ]);
+
+  return [normalizedName, normalizedCity].filter(Boolean).join("|");
+}
+
+function dedupeRankedShops(shops: RankedCoffeeShop[]): RankedCoffeeShop[] {
+  const grouped = new Map<string, RankedCoffeeShop>();
+
+  for (const shop of shops) {
+    const key = normalizeRankedShopIdentity(shop);
+    const existing = grouped.get(key);
+
+    if (!existing) {
+      grouped.set(key, shop);
+      continue;
+    }
+
+    const preferred = pickPreferredShop(existing, shop) === existing ? existing : shop;
+    grouped.set(key, preferred);
+  }
+
+  return Array.from(grouped.values());
+}
+
+function buildYourListShops(
+  curatedRecords: CuratedCafeRecord[],
+  resultsLocation: SearchLocation,
+  existingShops: CoffeeShop[]
+): CoffeeShop[] {
+  const grouped = new Map<string, CuratedCafeRecord[]>();
+  const locationLabel = resultsLocation.label.toLowerCase();
+
+  const candidateRecords = curatedRecords.filter((record) => {
+    const cafeName = record.cafeName?.trim();
+    if (!cafeName) {
+      return false;
+    }
+
+    if (record.sourceId !== "your-list") {
+      return false;
+    }
+
+    const city = record.city?.toLowerCase() ?? "";
+    const cityMatch = !city || locationLabel.includes(city) || city.includes(locationLabel);
+    const distanceMatch =
+      record.latitude !== undefined &&
+      record.longitude !== undefined &&
+      getDistanceMiles(
+        resultsLocation.latitude,
+        resultsLocation.longitude,
+        record.latitude,
+        record.longitude
+      ) <= 15;
+
+    return cityMatch || distanceMatch;
+  });
+
+  for (const record of candidateRecords) {
+    const key = normalizeYourListRecordIdentity(record);
+    const current = grouped.get(key) ?? [];
+    current.push(record);
+    grouped.set(key, current);
+  }
+
+  return Array.from(grouped.values())
+    .filter((records) => Boolean(records[0]?.cafeName?.trim()))
+    .map((records, index) => {
+      const primary = records[0];
+      const primaryName = primary.cafeName.trim();
+      const latitudeOffset = (index + 1) * 0.0011;
+      const longitudeOffset = (index + 1) * 0.0009;
+      const tags = Array.from(new Set(records.flatMap((record) => record.tags)));
+      const espressoBoost = Math.max(...records.map((record) => record.espressoBoost ?? 0), 0);
+      const pourOverBoost = Math.max(...records.map((record) => record.pourOverBoost ?? 0), 0);
+      const roasterBoost = Math.max(...records.map((record) => record.roasterBoost ?? 0), 0);
+      const credibilityBoost = Math.max(...records.map((record) => record.credibilityBoost ?? 0), 0);
+      const signalNotes = Array.from(new Set(records.flatMap((record) => record.signalNotes ?? [])));
+      const penaltySignals = Array.from(new Set(records.flatMap((record) => record.penaltySignals ?? [])));
+      const sources = records.map((record) => ({
+        source: record.sourceName,
+        category: record.category,
+        note: record.evidenceNote,
+        weight: record.confidence,
+        url: record.sourceUrl
+      }));
+
+      return {
+        id: `your-list-${primaryName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        name: primaryName,
+        discoveredByYou: true,
+        streetAddress: primary.streetAddress,
+        neighborhood: primary.neighborhood ?? "Added by you",
+        city: primary.city ?? resultsLocation.label,
+        state: primary.state,
+        zipCode: primary.zipCode ?? "",
+        latitude: primary.latitude ?? (resultsLocation.latitude + latitudeOffset),
+        longitude: primary.longitude ?? (resultsLocation.longitude + longitudeOffset),
+        openNow: true,
+        tags,
+        distanceHintMiles:
+          primary.latitude !== undefined && primary.longitude !== undefined
+            ? getDistanceMiles(
+                resultsLocation.latitude,
+                resultsLocation.longitude,
+                primary.latitude,
+                primary.longitude
+              )
+            : 0.6 + index * 0.15,
+        espressoEvidence: Math.min(10, 5.5 + espressoBoost * 6),
+        pourOverEvidence: Math.min(10, 5.5 + pourOverBoost * 6),
+        roasterProgram: Math.min(10, 4 + roasterBoost * 6),
+        credibilitySignals: Math.min(10, 6 + credibilityBoost * 6),
+        publicRating: 4.2,
+        sources,
+        whyRecommended: "Added by you from the admin editor, so it appears directly in your coffee list.",
+        signalNotes,
+        avoidNotes: [],
+        penaltySignals,
+        externalLinks: records.map((record) => ({
+          label: record.sourceName,
+          url: record.sourceUrl
+        }))
+      } satisfies CoffeeShop;
+    });
+}
+
+function buildCuratedFallbackShops(
+  curatedRecords: CuratedCafeRecord[],
+  resultsLocation: SearchLocation
+): CoffeeShop[] {
+  const grouped = new Map<string, CuratedCafeRecord[]>();
+  const locationLabel = resultsLocation.label.toLowerCase();
+
+  const candidateRecords = curatedRecords.filter((record) => {
+    const cafeName = record.cafeName?.trim();
+    if (!cafeName) return false;
+
+    const city = record.city?.toLowerCase() ?? "";
+    const neighborhood = record.neighborhood?.toLowerCase() ?? "";
+    const cityMatch =
+      !city ||
+      locationLabel.includes(city) ||
+      city.includes(locationLabel) ||
+      (neighborhood && locationLabel.includes(neighborhood));
+    const distanceMatch =
+      record.latitude !== undefined &&
+      record.longitude !== undefined &&
+      getDistanceMiles(
+        resultsLocation.latitude,
+        resultsLocation.longitude,
+        record.latitude,
+        record.longitude
+      ) <= 15;
+
+    return cityMatch || distanceMatch;
+  });
+
+  for (const record of candidateRecords) {
+    const key = normalizeRecordIdentity(record);
+    const current = grouped.get(key) ?? [];
+    current.push(record);
+    grouped.set(key, current);
+  }
+
+  return Array.from(grouped.values()).map((records, index) => {
+    const primary = records[0];
+    const primaryName = primary.cafeName.trim();
+    const latitudeOffset = (index + 1) * 0.0011;
+    const longitudeOffset = (index + 1) * 0.0009;
+    const tags = Array.from(new Set(records.flatMap((record) => record.tags)));
+    const espressoBoost = Math.max(...records.map((record) => record.espressoBoost ?? 0), 0);
+    const pourOverBoost = Math.max(...records.map((record) => record.pourOverBoost ?? 0), 0);
+    const roasterBoost = Math.max(...records.map((record) => record.roasterBoost ?? 0), 0);
+    const credibilityBoost = Math.max(...records.map((record) => record.credibilityBoost ?? 0), 0);
+    const signalNotes = Array.from(new Set(records.flatMap((record) => record.signalNotes ?? [])));
+    const avoidNotes = Array.from(new Set(records.flatMap((record) => record.avoidNotes ?? [])));
+    const penaltySignals = Array.from(new Set(records.flatMap((record) => record.penaltySignals ?? [])));
+    const sources = records.map((record) => ({
+      source: record.sourceName,
+      category: record.category,
+      note: record.evidenceNote,
+      weight: record.confidence,
+      url: record.sourceUrl
+    }));
+    const addedByYou = records.some((record) => record.sourceId === "your-list");
+
+    return {
+      id: `${addedByYou ? "your-list" : "curated"}-${primaryName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      name: primaryName,
+      discoveredByYou: addedByYou,
+      streetAddress: primary.streetAddress,
+      neighborhood: primary.neighborhood ?? "Specialty coffee",
+      city: primary.city ?? resultsLocation.label,
+      state: primary.state,
+      zipCode: primary.zipCode ?? "",
+      latitude: primary.latitude ?? (resultsLocation.latitude + latitudeOffset),
+      longitude: primary.longitude ?? (resultsLocation.longitude + longitudeOffset),
+      openNow: true,
+      tags,
+      distanceHintMiles:
+        primary.latitude !== undefined && primary.longitude !== undefined
+          ? getDistanceMiles(
+              resultsLocation.latitude,
+              resultsLocation.longitude,
+              primary.latitude,
+              primary.longitude
+            )
+          : 0.4 + index * 0.12,
+      espressoEvidence: Math.min(10, 5.8 + espressoBoost * 6),
+      pourOverEvidence: Math.min(10, 5.8 + pourOverBoost * 6),
+      roasterProgram: Math.min(10, 4.4 + roasterBoost * 6),
+      credibilitySignals: Math.min(10, 6 + credibilityBoost * 6),
+      publicRating: 4.3,
+      sources,
+      whyRecommended: addedByYou
+        ? "Added by you from the admin editor, so it appears directly in your coffee list."
+        : "Curated specialty coffee fallback for this area, built from editorial and enthusiast coffee sources.",
+      signalNotes,
+      avoidNotes,
+      penaltySignals,
+      externalLinks: records.map((record) => ({
+        label: record.sourceName,
+        url: record.sourceUrl
+      }))
+    } satisfies CoffeeShop;
+  });
 }
 
 function App() {
   const [location, setLocation] = useState<SearchLocation>(defaultLocation);
   const [resultsLocation, setResultsLocation] = useState<SearchLocation>(defaultLocation);
   const [locationInput, setLocationInput] = useState("");
-  const [searchMode, setSearchMode] = useState<SearchMode>("city");
-  const [geoStatus, setGeoStatus] = useState("Trying to detect your location automatically...");
+  const [searchMode, setSearchMode] = useState<SearchMode>("current");
+  const [savedCities, setSavedCities] = useState<SavedCity[]>(() => loadSavedCitiesFromStorage(defaultSavedCities));
+  const [savedCitiesReady, setSavedCitiesReady] = useState(false);
+  const [geoStatus, setGeoStatus] = useState("Choose your location, city, or ZIP code to begin.");
   const [resultsStatus, setResultsStatus] = useState<"live" | "fallback">("fallback");
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
   const [selectedShop, setSelectedShop] = useState<RankedCoffeeShop | null>(null);
-  const [shops, setShops] = useState<CoffeeShop[]>(mockCoffeeShops);
+  const [shops, setShops] = useState<CoffeeShop[]>([]);
+  const [curatedRecords, setCuratedRecords] = useState<CuratedCafeRecord[]>([]);
+  const [curatedRecordsMode, setCuratedRecordsMode] = useState<"supabase" | "local">("local");
+  const [curatedRecordsNote, setCuratedRecordsNote] = useState("Using bundled curated source records while the app loads.");
   const [isLoading, setIsLoading] = useState(false);
-  const autoLocateAttemptedRef = useRef(false);
+  const requestSequenceRef = useRef(0);
+
+  function beginLocationRequest() {
+    requestSequenceRef.current += 1;
+    return requestSequenceRef.current;
+  }
+
+  function isLatestLocationRequest(requestId: number) {
+    return requestSequenceRef.current === requestId;
+  }
+
+  const refreshCuratedRecords = useCallback(async () => {
+    const curatedSourceResult = await loadCuratedCafeRecords();
+    setCuratedRecords(curatedSourceResult.records);
+    setCuratedRecordsMode(curatedSourceResult.mode);
+    setCuratedRecordsNote(curatedSourceResult.note);
+  }, []);
+
+  const displayShops = useMemo(() => {
+    const curatedFallbackShops = buildCuratedFallbackShops(curatedRecords, resultsLocation);
+    const yourListShops = buildYourListShops(curatedRecords, resultsLocation, shops);
+    return enrichShopsForDisplay(
+      mergeDuplicateShops([...curatedFallbackShops, ...yourListShops, ...shops]),
+      curatedRecords
+    );
+  }, [shops, curatedRecords, resultsLocation]);
 
   const rankedShops = useMemo(() => {
-    return rankCoffeeShops(shops, resultsLocation, activeFilters);
-  }, [shops, resultsLocation, activeFilters]);
+    return dedupeRankedShops(rankCoffeeShops(displayShops, resultsLocation, activeFilters));
+  }, [displayShops, resultsLocation, activeFilters]);
 
-  const topPick = rankedShops[0];
+  const mySelectedCoffees = useMemo(
+    () => rankedShops.filter((shop) => shop.ownerRank !== undefined && shop.ownerRank > 50),
+    [rankedShops]
+  );
 
-  const resetToDefault = useCallback((status = "Reset to default recommendations.") => {
+  const { bestEspresso: myBestEspresso, bestPourOver: myBestPourOver } = useMemo(
+    () => splitSelectedCoffeeGroups(mySelectedCoffees),
+    [mySelectedCoffees]
+  );
+
+  const otherNearbyCoffees = useMemo(
+    () => {
+      const selectedKeys = new Set(mySelectedCoffees.map((shop) => normalizeRankedShopIdentity(shop)));
+      return rankedShops.filter((shop) => !selectedKeys.has(normalizeRankedShopIdentity(shop)));
+    },
+    [rankedShops, mySelectedCoffees]
+  );
+
+  const resetToDefault = useCallback((status = "Choose your location, city, or ZIP code to begin.") => {
     setLocation(defaultLocation);
     setResultsLocation(defaultLocation);
     setLocationInput("");
-    setShops(mockCoffeeShops);
+    setSearchMode("current");
+    setShops([]);
     setResultsStatus("fallback");
     setGeoStatus(status);
     setIsLoading(false);
   }, []);
 
   const handleUseMyLocation = useCallback(async () => {
+    const requestId = beginLocationRequest();
     setIsLoading(true);
 
     if (!window.isSecureContext) {
-      resetToDefault("Geolocation needs a secure page. Run the app from localhost with npm run dev, not from a file.");
+      if (isLatestLocationRequest(requestId)) {
+        resetToDefault("Geolocation needs a secure page. Run the app from localhost with npm run dev, not from a file.");
+      }
       return;
     }
 
     if (!navigator.geolocation) {
-      resetToDefault("Geolocation is not supported in this browser.");
+      if (isLatestLocationRequest(requestId)) {
+        resetToDefault("Geolocation is not supported in this browser.");
+      }
       return;
     }
 
@@ -82,7 +625,9 @@ function App() {
       try {
         const permission = await navigator.permissions.query({ name: "geolocation" });
         if (permission.state === "denied") {
-          resetToDefault("Location permission is blocked in your browser. Allow location for localhost and try again.");
+          if (isLatestLocationRequest(requestId)) {
+            resetToDefault("Location permission is blocked in your browser. Allow location for localhost and try again.");
+          }
           return;
         }
       } catch {
@@ -94,65 +639,88 @@ function App() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const userLocation: SearchLocation = {
-          label: "Your current location",
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          source: "geolocation"
-        };
-
-        const nearestPrototype = getNearestPrototypeMarket(
-          position.coords.latitude,
-          position.coords.longitude
-        );
-
-        setLocation(userLocation);
-        setLocationInput("");
+        if (!isLatestLocationRequest(requestId)) return;
 
         void (async () => {
+          let locationLabel = "Your current location";
+
+          try {
+            const reversedLabel = await reverseGeocodeLocation(
+              position.coords.latitude,
+              position.coords.longitude
+            );
+            if (reversedLabel) {
+              locationLabel = reversedLabel;
+            }
+          } catch {
+            // Keep the generic label when reverse geocoding is unavailable.
+          }
+
+          const userLocation: SearchLocation = {
+            label: locationLabel,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            source: "geolocation"
+          };
+
+          setLocation(userLocation);
+          setLocationInput("");
+
           try {
             const liveShops = await fetchNearbyCoffeeShops(userLocation);
-            const enrichedLiveShops = enrichShopsForDisplay(liveShops);
+            if (!isLatestLocationRequest(requestId)) return;
 
-            if (enrichedLiveShops.length > 0) {
+            if (liveShops.length > 0) {
               setResultsLocation(userLocation);
-              setShops(enrichedLiveShops);
+              setShops(liveShops);
               setResultsStatus("live");
-              setGeoStatus(`Using your real location and found ${enrichedLiveShops.length} nearby coffee places.`);
+              setGeoStatus(`Using ${locationLabel} and found ${liveShops.length} nearby coffee places.`);
               return;
             }
 
-            setResultsLocation(nearestPrototype);
-            setShops(mockCoffeeShops);
+            if (!isLatestLocationRequest(requestId)) return;
+            setResultsLocation(userLocation);
+            setShops([]);
             setResultsStatus("fallback");
-            setGeoStatus(`Your real location was detected, but live nearby lookup returned no cafes. Showing prototype data centered near ${nearestPrototype.label} instead.`);
+            setGeoStatus(`${locationLabel} was detected, but live nearby lookup returned no cafes. Showing curated fallback coffee picks for that area instead.`);
           } catch (error) {
-            setResultsLocation(nearestPrototype);
-            setShops(mockCoffeeShops);
+            if (!isLatestLocationRequest(requestId)) return;
+            setResultsLocation(userLocation);
+            setShops([]);
             setResultsStatus("fallback");
-            setGeoStatus(`Your real location was detected, but nearby coffee lookup failed. Showing prototype recommendations centered near ${nearestPrototype.label} instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
+            setGeoStatus(`${locationLabel} was detected, but nearby coffee lookup failed. Showing curated fallback coffee picks for that area instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
           } finally {
-            setIsLoading(false);
+            if (isLatestLocationRequest(requestId)) {
+              setIsLoading(false);
+            }
           }
         })();
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
-          resetToDefault("Location blocked by the browser. Showing default recommendations instead.");
+          if (isLatestLocationRequest(requestId)) {
+            resetToDefault("Location blocked by the browser. Showing default recommendations instead.");
+          }
           return;
         }
 
         if (error.code === error.POSITION_UNAVAILABLE) {
-          resetToDefault("Your browser could not determine a location. Showing default recommendations instead.");
+          if (isLatestLocationRequest(requestId)) {
+            resetToDefault("Your browser could not determine a location. Showing default recommendations instead.");
+          }
           return;
         }
 
         if (error.code === error.TIMEOUT) {
-          resetToDefault("Location timed out. Showing default recommendations instead.");
+          if (isLatestLocationRequest(requestId)) {
+            resetToDefault("Location timed out. Showing default recommendations instead.");
+          }
           return;
         }
 
-        resetToDefault(`Could not read your location. Showing default recommendations instead. ${error.message}`);
+        if (isLatestLocationRequest(requestId)) {
+          resetToDefault(`Could not read your location. Showing default recommendations instead. ${error.message}`);
+        }
       },
       {
         enableHighAccuracy: true,
@@ -163,51 +731,47 @@ function App() {
   }, [resetToDefault]);
 
   useEffect(() => {
-    if (autoLocateAttemptedRef.current) {
-      return;
-    }
+    void refreshCuratedRecords();
+  }, [refreshCuratedRecords]);
 
-    autoLocateAttemptedRef.current = true;
-    void handleUseMyLocation();
-  }, [handleUseMyLocation]);
+  useEffect(() => {
+    void (async () => {
+      const supabaseCities = await loadSavedCitiesFromSupabase();
+      if (supabaseCities && supabaseCities.length > 0) {
+        setSavedCities(supabaseCities);
+        saveSavedCitiesToStorage(supabaseCities);
+      }
+      setSavedCitiesReady(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!savedCitiesReady) return;
+    saveSavedCitiesToStorage(savedCities);
+    void saveSavedCitiesToSupabase(savedCities);
+  }, [savedCities, savedCitiesReady]);
 
   async function handleSearch() {
+    const requestId = beginLocationRequest();
     const query = normalizeQuery(locationInput);
     if (!query) {
-      setGeoStatus(searchMode === "zip" ? "Enter a 5-digit ZIP code to search." : "Enter a city or neighborhood to search.");
+      if (isLatestLocationRequest(requestId)) {
+        setGeoStatus(searchMode === "zip" ? "Enter a 5-digit ZIP code to search." : "Enter a city or neighborhood to search.");
+      }
       return;
     }
 
     setIsLoading(true);
 
+    let liveLocation: SearchLocation | null = null;
+
     try {
-      const liveLocation = await geocodeLocation(query, searchMode);
-
-      if (liveLocation) {
-        const liveShops = await fetchNearbyCoffeeShops(liveLocation);
-        const enrichedLiveShops = enrichShopsForDisplay(liveShops);
-        setLocation(liveLocation);
-
-        if (enrichedLiveShops.length > 0) {
-          setResultsLocation(liveLocation);
-          setShops(enrichedLiveShops);
-          setResultsStatus("live");
-          setGeoStatus(`Search applied: ${liveLocation.label}. Found ${enrichedLiveShops.length} nearby coffee places.`);
-          setIsLoading(false);
-          return;
-        }
-
-        setResultsLocation(liveLocation);
-        setShops(mockCoffeeShops);
-        setResultsStatus("fallback");
-        setGeoStatus(`Found ${liveLocation.label}, but no live nearby cafes were returned. Showing prototype data instead.`);
-        setIsLoading(false);
-        return;
-      }
+      liveLocation = await geocodeLocation(query, searchMode);
     } catch (error) {
       if (searchMode === "city") {
         const matchedLocation = findMockLocation(query.toLowerCase());
         if (matchedLocation) {
+          if (!isLatestLocationRequest(requestId)) return;
           setLocation(matchedLocation);
           setResultsLocation(matchedLocation);
           setShops(mockCoffeeShops);
@@ -218,11 +782,57 @@ function App() {
         }
       }
 
-      resetToDefault(error instanceof Error ? error.message : "Search failed. Reset to default recommendations.");
+      if (isLatestLocationRequest(requestId)) {
+        setGeoStatus(error instanceof Error ? error.message : "Search failed.");
+        setIsLoading(false);
+      }
       return;
     }
 
-    resetToDefault("Could not find that location yet. Showing default recommendations instead.");
+    if (!liveLocation) {
+      if (isLatestLocationRequest(requestId)) {
+        setGeoStatus("Could not find that location. Try a city, neighborhood, or 5-digit ZIP code.");
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    try {
+      const liveShops = await fetchNearbyCoffeeShops(liveLocation);
+      if (!isLatestLocationRequest(requestId)) return;
+      setLocation(liveLocation);
+
+      if (liveShops.length > 0) {
+        setResultsLocation(liveLocation);
+        setShops(liveShops);
+        setResultsStatus("live");
+        setGeoStatus(`Search applied: ${liveLocation.label}. Found ${liveShops.length} nearby coffee places.`);
+        setIsLoading(false);
+        return;
+      }
+
+      setLocation(liveLocation);
+      setResultsLocation(liveLocation);
+      setShops([]);
+      setResultsStatus("fallback");
+      setGeoStatus(`Found ${liveLocation.label}, but live nearby cafes were unavailable. Showing curated fallback coffee picks for that area.`);
+      setIsLoading(false);
+      return;
+    } catch (error) {
+      if (!isLatestLocationRequest(requestId)) return;
+
+      setLocation(liveLocation);
+      setResultsLocation(liveLocation);
+      setShops([]);
+      setResultsStatus("fallback");
+      setGeoStatus(`Found ${liveLocation.label}, but nearby lookup failed. Showing curated fallback coffee picks for that area instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
+      setIsLoading(false);
+      return;
+    }
+
+    if (isLatestLocationRequest(requestId)) {
+      resetToDefault("Could not find that location yet. Showing default recommendations instead.");
+    }
   }
 
   function handleToggleFilter(filter: FilterKey) {
@@ -237,44 +847,152 @@ function App() {
     resetToDefault();
   }
 
+  function handleAddSavedCity(cityValue: string) {
+    const normalizedValue = cityValue.trim();
+    if (!normalizedValue) return;
+
+    setSavedCities((current) => {
+      const alreadyExists = current.some(
+        (entry) => normalizeSavedCityValue(entry.value) === normalizeSavedCityValue(normalizedValue)
+      );
+
+      if (alreadyExists) {
+        setGeoStatus(`${createSavedCityLabel(normalizedValue)} is already in My Cities.`);
+        return current;
+      }
+
+      const nextEntry = {
+        label: createSavedCityLabel(normalizedValue),
+        value: normalizedValue
+      };
+
+      setGeoStatus(`${nextEntry.label} was added to My Cities.`);
+      return [...current, nextEntry];
+    });
+  }
+
+  function handleSelectSavedCity(cityValue: string) {
+    setSearchMode("city");
+    setLocationInput(cityValue);
+    setGeoStatus(`Searching saved city: ${cityValue}`);
+
+    window.setTimeout(() => {
+      void handleSavedCitySearch(cityValue);
+    }, 0);
+  }
+
+  async function handleSavedCitySearch(cityValue: string) {
+    setLocationInput(cityValue);
+    const requestId = beginLocationRequest();
+    const query = normalizeQuery(cityValue);
+    if (!query) return;
+
+    setIsLoading(true);
+
+    let liveLocation: SearchLocation | null = null;
+
+    try {
+      liveLocation = await geocodeLocation(query, "city");
+    } catch (error) {
+      const matchedLocation = findMockLocation(query.toLowerCase());
+      if (matchedLocation) {
+        if (!isLatestLocationRequest(requestId)) return;
+        setLocation(matchedLocation);
+        setResultsLocation(matchedLocation);
+        setShops(mockCoffeeShops);
+        setResultsStatus("fallback");
+        setGeoStatus(`Live lookup missed ${query}, so the app used the prototype match: ${matchedLocation.label}.`);
+        setIsLoading(false);
+        return;
+      }
+
+      if (isLatestLocationRequest(requestId)) {
+        setGeoStatus(error instanceof Error ? error.message : "Search failed.");
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    if (!liveLocation) {
+      if (isLatestLocationRequest(requestId)) {
+        setGeoStatus(`Could not find ${query} yet.`);
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    try {
+      const liveShops = await fetchNearbyCoffeeShops(liveLocation);
+      if (!isLatestLocationRequest(requestId)) return;
+      setLocation(liveLocation);
+
+      if (liveShops.length > 0) {
+        setResultsLocation(liveLocation);
+        setShops(liveShops);
+        setResultsStatus("live");
+        setGeoStatus(`Saved city applied: ${liveLocation.label}. Found ${liveShops.length} nearby coffee places.`);
+        setIsLoading(false);
+        return;
+      }
+
+      setResultsLocation(liveLocation);
+      setShops([]);
+      setResultsStatus("fallback");
+      setGeoStatus(`Found ${liveLocation.label}, but live nearby cafes were unavailable. Showing curated fallback coffee picks for that area.`);
+      setIsLoading(false);
+    } catch (error) {
+      if (!isLatestLocationRequest(requestId)) return;
+
+      setLocation(liveLocation);
+      setResultsLocation(liveLocation);
+      setShops([]);
+      setResultsStatus("fallback");
+      setGeoStatus(`Found ${liveLocation.label}, but nearby lookup failed. Showing curated fallback coffee picks for that area instead. ${error instanceof Error ? error.message : "Unknown lookup error."}`);
+      setIsLoading(false);
+    }
+  }
+
+  function handleSelectMode(mode: SearchMode) {
+    setSearchMode(mode);
+    setLocationInput("");
+
+    if (mode === "current") {
+      void handleUseMyLocation();
+      return;
+    }
+
+    setGeoStatus(mode === "zip" ? "ZIP code mode selected. Enter a 5-digit ZIP code." : "City mode selected. Enter a city or neighborhood.");
+  }
+  const selectedRankedShop = selectedShop
+    ? rankedShops.find((shop) => shop.id === selectedShop.id) ?? selectedShop
+    : null;
+
   return (
     <main className="app-shell">
       <section id="about">
         <LocationPanel
-          location={location}
           locationInput={locationInput}
           onInputChange={setLocationInput}
           onSearch={handleSearch}
           onUseMyLocation={handleUseMyLocation}
           onReset={handleReset}
-          onSelectMode={setSearchMode}
+          onSelectMode={handleSelectMode}
+          onSelectSavedCity={handleSelectSavedCity}
+          onAddSavedCity={handleAddSavedCity}
           searchMode={searchMode}
           geoStatus={geoStatus}
+          currentLocationLabel={resultsLocation.label}
           logoSrc={waliEspressoLogo}
           isLoading={isLoading}
+          savedCities={savedCities}
         />
-      </section>
-
-      <section className="top-pick-panel">
-        <p className="eyebrow">Top recommendation</p>
-        <div className="top-pick-card">
-          <div>
-            <h2>{topPick?.name}</h2>
-            <p>{topPick?.whyRecommended}</p>
-          </div>
-          <div className="top-pick-stats">
-            <span>{topPick?.specialtyScore} specialty score</span>
-            <span>{topPick?.distanceMiles.toFixed(1)} mi away</span>
-            <span>{topPick?.supportLabels.join(" · ")}</span>
-          </div>
-        </div>
       </section>
 
       <section id="results" className="results-shell">
         <div className="section-heading results-header">
           <div>
             <p className="eyebrow">Results</p>
-            <h2>Ranked cafes and roasters</h2>
+            <h2>Ranked coffee</h2>
           </div>
           <div className="results-meta">
             <span className={resultsStatus === "live" ? "results-badge live" : "results-badge fallback"}>
@@ -286,41 +1004,70 @@ function App() {
 
         <FilterBar activeFilters={activeFilters} onToggleFilter={handleToggleFilter} />
 
+        {mySelectedCoffees.length > 0 ? (
+          <section className="my-coffees-shell">
+            <div className="section-heading compact-heading">
+              <div>
+                <p className="eyebrow">Wali's Selected Coffees</p>
+                <h3>Your selected coffee first</h3>
+              </div>
+            </div>
+
+            <div className="my-coffee-columns">
+              <div className="my-coffee-column">
+                <h4>Best espresso</h4>
+                <div className="results-list compact-results-list">
+                  {myBestEspresso.length > 0 ? (
+                    myBestEspresso.map((shop) => (
+                      <CafeCard key={`espresso-${shop.id}`} shop={shop} onViewDetails={setSelectedShop} />
+                    ))
+                  ) : (
+                    <p className="admin-status">No espresso picks above 50 yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="my-coffee-column">
+                <h4>Best pour over</h4>
+                <div className="results-list compact-results-list">
+                  {myBestPourOver.length > 0 ? (
+                    myBestPourOver.map((shop) => (
+                      <CafeCard key={`pourover-${shop.id}`} shop={shop} onViewDetails={setSelectedShop} />
+                    ))
+                  ) : (
+                    <p className="admin-status">No pour-over picks above 50 yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <div className="content-grid">
-          <div className="results-list">
-            {rankedShops.map((shop) => (
-              <CafeCard key={shop.id} shop={shop} onViewDetails={setSelectedShop} />
-            ))}
+          <div>
+            <div className="section-heading compact-heading">
+              <div>
+                <p className="eyebrow">Nearby</p>
+                <h3>Other nearby coffee</h3>
+              </div>
+            </div>
+            <div className="results-list">
+              {otherNearbyCoffees.map((shop) => (
+                <CafeCard key={shop.id} shop={shop} onViewDetails={setSelectedShop} />
+              ))}
+            </div>
           </div>
 
           <MapCardRail shops={rankedShops} location={resultsLocation} />
         </div>
       </section>
 
-      <section id="method" className="architecture-panel">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Method</p>
-            <h2>Production-minded, mock-data first</h2>
-          </div>
-        </div>
-        <div className="architecture-grid">
-          <article>
-            <h3>Automatic location</h3>
-            <p>The app now tries to detect the user location automatically on first load, then falls back safely if permission or live lookup fails.</p>
-          </article>
-          <article>
-            <h3>Deployment ready</h3>
-            <p>The app is ready for static deployment with Vite on Vercel or Cloudflare Pages once you push it to GitHub.</p>
-          </article>
-          <article>
-            <h3>Curated specialty enrichment</h3>
-            <p>Live places are matched against known specialty cafes in the curated dataset to inherit stronger editorial and enthusiast signals.</p>
-          </article>
-        </div>
-      </section>
+      <AdminPanel curatedMode={curatedRecordsMode} onSaved={refreshCuratedRecords} />
 
-      <CafeDetailModal shop={selectedShop} onClose={() => setSelectedShop(null)} />
+      <CafeDetailModal
+        shop={selectedRankedShop}
+        onClose={() => setSelectedShop(null)}
+      />
     </main>
   );
 }

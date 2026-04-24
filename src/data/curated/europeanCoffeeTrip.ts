@@ -14,7 +14,13 @@ export const europeanCoffeeTripRecords: CuratedCafeRecord[] = [
     sourceUrl: "https://europeancoffeetrip.com",
     pourOverBoost: 1.4,
     roasterBoost: 1.2,
-    credibilityBoost: 1.1
+    credibilityBoost: 1.1,
+    coffeeFocusBoost: 0.9,
+    transparencyBoost: 0.9,
+    signalNotes: [
+      "single-origin filter coffee is presented as a destination-level offering",
+      "origin and roast transparency support traceability"
+    ]
   },
   {
     sourceId: "european-coffee-trip",
@@ -29,6 +35,12 @@ export const europeanCoffeeTripRecords: CuratedCafeRecord[] = [
     sourceUrl: "https://europeancoffeetrip.com",
     pourOverBoost: 1.3,
     roasterBoost: 1.1,
-    credibilityBoost: 1
+    credibilityBoost: 1,
+    coffeeFocusBoost: 0.8,
+    transparencyBoost: 0.7,
+    signalNotes: [
+      "manual brew options are treated as precision coffee service",
+      "coffee descriptions show flavor-note competence"
+    ]
   }
 ];

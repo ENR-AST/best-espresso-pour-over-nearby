@@ -33,6 +33,64 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter"
 ];
+const DEFAULT_SEARCH_RADIUS_METERS = 16093;
+const EXCLUDED_CHAIN_PATTERNS = [
+  /\bstarbucks\b/i,
+  /\bdunkin\b/i,
+  /\bpeet'?s\b/i,
+  /\btim hortons\b/i,
+  /\bcosta coffee\b/i,
+  /\bcaribou coffee\b/i,
+  /\bthe coffee bean\b/i,
+  /\bcoffee bean & tea leaf\b/i,
+  /\bgloria jean'?s\b/i,
+  /\bphilz\b/i
+];
+
+function normalizeIdentityPart(value: string | undefined): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeNameFingerprint(name: string | undefined): string {
+  return normalizeIdentityPart(name)
+    .replace(/\bcoffee\b/g, "")
+    .replace(/\broasters\b/g, "")
+    .replace(/\broastery\b/g, "")
+    .replace(/\bcafe\b/g, "")
+    .replace(/\blane\b/g, "")
+    .replace(/\s+/g, "");
+}
+
+function getLiveDedupeKey(shop: CoffeeShop): string {
+  const normalizedName = normalizeNameFingerprint(shop.name);
+  const normalizedStreet = normalizeIdentityPart(shop.streetAddress);
+  const normalizedCity = normalizeIdentityPart(shop.city);
+  const normalizedState = normalizeIdentityPart(shop.state);
+
+  return [normalizedName, normalizedStreet || normalizedCity, normalizedState].filter(Boolean).join("|");
+}
+
+function pickPreferredLiveShop(left: CoffeeShop, right: CoffeeShop): CoffeeShop {
+  const leftCompleteness = [left.streetAddress, left.city, left.state, left.zipCode].filter(Boolean).length;
+  const rightCompleteness = [right.streetAddress, right.city, right.state, right.zipCode].filter(Boolean).length;
+
+  if (leftCompleteness !== rightCompleteness) {
+    return leftCompleteness > rightCompleteness ? left : right;
+  }
+
+  const leftEvidence = left.sources.length + (left.signalNotes?.length ?? 0);
+  const rightEvidence = right.sources.length + (right.signalNotes?.length ?? 0);
+  if (leftEvidence !== rightEvidence) {
+    return leftEvidence > rightEvidence ? left : right;
+  }
+
+  return left;
+}
 
 function safeNumber(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
@@ -42,6 +100,30 @@ function safeNumber(value: string | undefined, fallback: number): number {
 
 function normalizeText(value: string | undefined): string {
   return (value ?? "").trim();
+}
+
+function splitLocationLabel(label: string) {
+  const parts = label.split(",").map((part) => part.trim()).filter(Boolean);
+  return {
+    city: parts[0] ?? "",
+    state: parts[1] ?? ""
+  };
+}
+
+function buildStreetAddress(tags: Record<string, string>): string {
+  const houseNumber = normalizeText(tags["addr:housenumber"]);
+  const street = normalizeText(tags["addr:street"]);
+  const streetOnly = normalizeText(tags.street);
+
+  if (houseNumber && street) {
+    return `${houseNumber} ${street}`;
+  }
+
+  return street || streetOnly;
+}
+
+export function isExcludedLargeChain(name: string): boolean {
+  return EXCLUDED_CHAIN_PATTERNS.some((pattern) => pattern.test(name));
 }
 
 function inferTags(tags: Record<string, string>): Tag[] {
@@ -57,6 +139,69 @@ function inferTags(tags: Record<string, string>): Tag[] {
   return Array.from(result);
 }
 
+function buildTextBlob(tags: Record<string, string>): string {
+  return Object.values(tags).join(" ").toLowerCase();
+}
+
+function inferSignalNotes(textBlob: string): string[] {
+  const notes: string[] = [];
+
+  if (/(single origin|single-origin|ethiopian|ethiopia|colombia|colombian|guatemala|guatemalan|kenya|panama|washed|natural)/i.test(textBlob)) {
+    notes.push("single-origin coffee and traceable sourcing are visible");
+  }
+
+  if (/(pour over|pour-over|v60|chemex|kalita|brew bar|filter coffee)/i.test(textBlob)) {
+    notes.push("manual brew is offered as a real handcrafted coffee option");
+  }
+
+  if (/(cortado|macchiato|flat white)/i.test(textBlob)) {
+    notes.push("traditional espresso drinks suggest ratio-based preparation");
+  }
+
+  if (/(roast date|fresh crop|origin|producer|farm)/i.test(textBlob)) {
+    notes.push("origin and freshness details suggest stronger transparency");
+  }
+
+  if (/(fruity|chocolaty|chocolatey|floral|citrus|berry|stone fruit|caramel notes|tasting notes)/i.test(textBlob)) {
+    notes.push("flavor-note language suggests coffee knowledge at the bar");
+  }
+
+  return notes;
+}
+
+function inferPenaltySignals(textBlob: string): string[] {
+  const penalties: string[] = [];
+
+  if (/(dark roast|bold roast|extra bold|french roast)/i.test(textBlob)) {
+    penalties.push("dark-roast or bold-roast language can hide bean quality");
+  }
+
+  if (/(vanilla|hazelnut|caramel|pumpkin spice|frappe|frappuccino|smoothie|milkshake|boba|bubble tea|energy drink|monster|red bull)/i.test(textBlob)) {
+    penalties.push("sweet or non-coffee drinks appear to dominate the menu");
+  }
+
+  if (/(small|medium|large)/i.test(textBlob) && /(latte|cappuccino|macchiato|cortado|flat white|espresso)/i.test(textBlob)) {
+    penalties.push("generic cup sizing appears to override espresso drink ratios");
+  }
+
+  if (/(breakfast|brunch|sandwich|burger|pizza|salad|cocktail|wine|beer)/i.test(textBlob) && !/(espresso|pour over|single origin|roaster|brew bar)/i.test(textBlob)) {
+    penalties.push("food or non-coffee service appears more prominent than coffee craft");
+  }
+
+  return penalties;
+}
+
+function getCoffeeEvidenceAdjustments(signalNotes: string[], penaltySignals: string[]) {
+  const positive = signalNotes.length;
+  const negative = penaltySignals.length;
+
+  return {
+    espresso: positive * 0.45 - negative * 0.5,
+    pourOver: positive * 0.55 - negative * 0.55,
+    credibility: positive * 0.4 - negative * 0.5
+  };
+}
+
 function toCoffeeShop(element: OverpassElement, location: SearchLocation): CoffeeShop | null {
   const tags = element.tags ?? {};
   const name = normalizeText(tags.name);
@@ -64,41 +209,62 @@ function toCoffeeShop(element: OverpassElement, location: SearchLocation): Coffe
   const longitude = element.lon ?? element.center?.lon;
 
   if (!name || latitude === undefined || longitude === undefined) return null;
+  if (isExcludedLargeChain(name)) return null;
 
   const inferredTags = inferTags(tags);
   const isRoaster = inferredTags.includes("roaster");
   const hasWebsite = Boolean(tags.website || tags["contact:website"]);
-  const textBlob = Object.values(tags).join(" ");
+  const textBlob = buildTextBlob(tags);
   const hasSpecialtyWords = /specialty|single origin|third wave|espresso|filter|pour over|pour-over|roaster/i.test(textBlob);
+  const signalNotes = inferSignalNotes(textBlob);
+  const penaltySignals = inferPenaltySignals(textBlob);
+  const adjustments = getCoffeeEvidenceAdjustments(signalNotes, penaltySignals);
+  const locationParts = splitLocationLabel(location.label);
+  const streetAddress = buildStreetAddress(tags);
+  const city =
+    normalizeText(tags["addr:city"]) ||
+    normalizeText(tags["addr:town"]) ||
+    normalizeText(tags["addr:village"]) ||
+    locationParts.city ||
+    location.label;
+  const state =
+    normalizeText(tags["addr:state"]) ||
+    normalizeText(tags["addr:state_code"]) ||
+    locationParts.state;
 
   return {
     id: `live-${element.type}-${element.id}`,
     name,
+    streetAddress,
     neighborhood: normalizeText(tags.neighbourhood) || normalizeText(tags.suburb) || "Nearby",
-    city: normalizeText(tags["addr:city"]) || location.label,
+    city,
+    state,
     zipCode: normalizeText(tags["addr:postcode"]),
     latitude,
     longitude,
     openNow: true,
     tags: inferredTags,
     distanceHintMiles: 0,
-    espressoEvidence: hasSpecialtyWords ? 6.2 : 4.5,
-    pourOverEvidence: hasSpecialtyWords ? 5.8 : 3.8,
+    espressoEvidence: Math.max(2.5, Math.min(10, (hasSpecialtyWords ? 6.2 : 4.5) + adjustments.espresso)),
+    pourOverEvidence: Math.max(2.2, Math.min(10, (hasSpecialtyWords ? 5.8 : 3.8) + adjustments.pourOver)),
     roasterProgram: isRoaster ? 8.4 : 3.5,
-    credibilitySignals: hasWebsite ? 5.6 : 4.2,
+    credibilitySignals: Math.max(2.5, Math.min(10, (hasWebsite ? 5.6 : 4.2) + adjustments.credibility)),
     publicRating: 3.8,
     sources: [
       {
         source: "OpenStreetMap",
         category: "public-review",
-        note: "Live nearby coffee place from OpenStreetMap. Specialty enrichment still needs curated source ingestion.",
+        note: "Live nearby coffee place from OpenStreetMap, blended with coffee-first signals and curated specialty enrichment when available.",
         weight: 0.35,
         url: `https://www.openstreetmap.org/${element.type}/${element.id}`
       }
     ],
     whyRecommended: isRoaster
-      ? "Nearby live result with roastery signals. Specialty ranking is provisional until curated coffee sources are connected."
-      : "Nearby live coffee result. Specialty ranking is provisional until curated coffee sources are connected.",
+      ? "Nearby live result with roastery signals and stronger coffee-first potential."
+      : "Nearby live coffee result selected for coffee-first signals and local relevance.",
+    signalNotes,
+    penaltySignals,
+    avoidNotes: penaltySignals.length > 0 ? ["available metadata suggests this may be less coffee-focused than the strongest specialty picks"] : [],
     externalLinks: [
       ...(tags.website || tags["contact:website"] ? [{ label: "Website", url: tags.website ?? tags["contact:website"] ?? "" }] : []),
       { label: "OpenStreetMap", url: `https://www.openstreetmap.org/${element.type}/${element.id}` }
@@ -166,6 +332,76 @@ export async function geocodeLocation(query: string, mode: SearchMode): Promise<
   };
 }
 
+export async function geocodeAddress(query: string): Promise<SearchLocation | null> {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("q", trimmed);
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" }
+  });
+
+  if (!response.ok) throw new Error(`Address lookup failed with status ${response.status}`);
+
+  const data = (await response.json()) as NominatimResult[];
+  const first = data[0];
+  if (!first) return null;
+
+  return {
+    label: first.display_name,
+    latitude: safeNumber(first.lat, 0),
+    longitude: safeNumber(first.lon, 0),
+    source: "manual"
+  };
+}
+
+export async function reverseGeocodeLocation(latitude: number, longitude: number): Promise<string | null> {
+  const url = new URL("https://nominatim.openstreetmap.org/reverse");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("lat", String(latitude));
+  url.searchParams.set("lon", String(longitude));
+  url.searchParams.set("zoom", "12");
+  url.searchParams.set("addressdetails", "1");
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Reverse geocoding failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    display_name?: string;
+    address?: Record<string, string>;
+  };
+
+  const address = data.address ?? {};
+  const cityLabel =
+    address.city ||
+    address.town ||
+    address.village ||
+    address.municipality ||
+    address.suburb ||
+    address.county;
+  const stateLabel = address.state_code || address.state;
+
+  if (cityLabel && stateLabel) {
+    return `${cityLabel}, ${stateLabel}`;
+  }
+
+  if (cityLabel) {
+    return cityLabel;
+  }
+
+  return data.display_name?.split(",").slice(0, 2).join(", ").trim() || null;
+}
+
 async function fetchOverpass(endpoint: string, body: string): Promise<{ elements?: OverpassElement[] }> {
   const response = await fetch(endpoint, {
     method: "POST",
@@ -177,7 +413,7 @@ async function fetchOverpass(endpoint: string, body: string): Promise<{ elements
   return (await response.json()) as { elements?: OverpassElement[] };
 }
 
-export async function fetchNearbyCoffeeShops(location: SearchLocation, radiusMeters = 2500): Promise<CoffeeShop[]> {
+export async function fetchNearbyCoffeeShops(location: SearchLocation, radiusMeters = DEFAULT_SEARCH_RADIUS_METERS): Promise<CoffeeShop[]> {
   const query = `
 [out:json][timeout:20];
 (
@@ -202,7 +438,15 @@ out center tags 24;
       for (const element of elements) {
         const shop = toCoffeeShop(element, location);
         if (!shop) continue;
-        if (!deduped.has(shop.name.toLowerCase())) deduped.set(shop.name.toLowerCase(), shop);
+        const key = getLiveDedupeKey(shop);
+        const existing = deduped.get(key);
+
+        if (!existing) {
+          deduped.set(key, shop);
+          continue;
+        }
+
+        deduped.set(key, pickPreferredLiveShop(existing, shop));
       }
 
       return Array.from(deduped.values()).slice(0, 24);
