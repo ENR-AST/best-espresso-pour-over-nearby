@@ -269,7 +269,7 @@ function normalizeRankedShopIdentity(shop: RankedCoffeeShop): string {
   return [
     normalizedName,
     isYourSelection ? normalizedCity : normalizedStreet || normalizedNeighborhood || normalizedCity,
-    normalizedState
+    isYourSelection ? "" : normalizedState
   ]
     .filter(Boolean)
     .join("|");
@@ -294,7 +294,6 @@ function normalizeRecordIdentity(record: CuratedCafeRecord): string {
 
 function normalizeYourListRecordIdentity(record: CuratedCafeRecord): string {
   const normalizedCity = normalizeIdentityText(record.city);
-  const normalizedState = normalizeIdentityText(record.state);
   const normalizedName = buildNameFingerprint(record.cafeName, [
     record.city,
     record.state,
@@ -302,7 +301,7 @@ function normalizeYourListRecordIdentity(record: CuratedCafeRecord): string {
     record.streetAddress
   ]);
 
-  return [normalizedName, normalizedCity, normalizedState].filter(Boolean).join("|");
+  return [normalizedName, normalizedCity].filter(Boolean).join("|");
 }
 
 function dedupeRankedShops(shops: RankedCoffeeShop[]): RankedCoffeeShop[] {
