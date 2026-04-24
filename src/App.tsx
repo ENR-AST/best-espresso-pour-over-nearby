@@ -33,6 +33,40 @@ function normalizeQuery(value: string): string {
   return value.trim();
 }
 
+function normalizeIdentityText(value: string | undefined): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenizeIdentityText(value: string | undefined): string[] {
+  return normalizeIdentityText(value)
+    .split(" ")
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 2);
+}
+
+function buildNameFingerprint(
+  name: string | undefined,
+  context: Array<string | undefined>
+): string {
+  const blockedWords = new Set([
+    "coffee",
+    "roasters",
+    "roastery",
+    "cafe",
+    "lane",
+    "espresso",
+    ...context.flatMap((value) => tokenizeIdentityText(value))
+  ]);
+
+  const parts = tokenizeIdentityText(name).filter((part) => !blockedWords.has(part));
+  return parts.join("");
+}
+
 function normalizeSavedCityValue(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -66,29 +100,18 @@ function enrichShopsForDisplay(shops: CoffeeShop[], curatedRecords: CuratedCafeR
 }
 
 function normalizeShopKey(shop: CoffeeShop): string {
-  const normalize = (value: string | undefined) =>
-    (value ?? "")
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+  const normalizedStreet = normalizeIdentityText(shop.streetAddress);
+  const normalizedCity = normalizeIdentityText(shop.city);
+  const normalizedState = normalizeIdentityText(shop.state);
+  const normalizedNeighborhood = normalizeIdentityText(shop.neighborhood);
+  const normalizedName = buildNameFingerprint(shop.name, [
+    shop.city,
+    shop.state,
+    shop.neighborhood,
+    shop.streetAddress
+  ]);
 
-  const normalizeName = (value: string | undefined) =>
-    normalize(value)
-      .replace(/\bcoffee\b/g, "")
-      .replace(/\broasters\b/g, "")
-      .replace(/\broastery\b/g, "")
-      .replace(/\bcafe\b/g, "")
-      .replace(/\blane\b/g, "")
-      .replace(/\s+/g, "");
-
-  const normalizedStreet = normalize(shop.streetAddress);
-  const normalizedCity = normalize(shop.city);
-  const normalizedState = normalize(shop.state);
-  const normalizedName = normalizeName(shop.name);
-
-  return [normalizedName, normalizedStreet || normalize(shop.neighborhood), normalizedCity, normalizedState]
+  return [normalizedName, normalizedStreet || normalizedNeighborhood || normalizedCity, normalizedState]
     .filter(Boolean)
     .join("|");
 }
@@ -227,28 +250,39 @@ function splitSelectedCoffeeGroups(shops: RankedCoffeeShop[]) {
 }
 
 function normalizeRankedShopIdentity(shop: RankedCoffeeShop): string {
-  const normalize = (value: string | undefined) =>
-    (value ?? "")
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-  const normalizeName = (value: string | undefined) =>
-    normalize(value)
-      .replace(/\bcoffee\b/g, "")
-      .replace(/\broasters\b/g, "")
-      .replace(/\broastery\b/g, "")
-      .replace(/\bcafe\b/g, "")
-      .replace(/\blane\b/g, "")
-      .replace(/\s+/g, "");
+  const normalizedStreet = normalizeIdentityText(shop.streetAddress);
+  const normalizedCity = normalizeIdentityText(shop.city);
+  const normalizedState = normalizeIdentityText(shop.state);
+  const normalizedNeighborhood = normalizeIdentityText(shop.neighborhood);
+  const normalizedName = buildNameFingerprint(shop.name, [
+    shop.city,
+    shop.state,
+    shop.neighborhood,
+    shop.streetAddress
+  ]);
 
   return [
-    normalizeName(shop.name),
-    normalize(shop.streetAddress) || normalize(shop.city),
-    normalize(shop.state) || normalize(shop.neighborhood)
+    normalizedName,
+    normalizedStreet || normalizedNeighborhood || normalizedCity,
+    normalizedState
   ]
+    .filter(Boolean)
+    .join("|");
+}
+
+function normalizeRecordIdentity(record: CuratedCafeRecord): string {
+  const normalizedStreet = normalizeIdentityText(record.streetAddress);
+  const normalizedCity = normalizeIdentityText(record.city);
+  const normalizedState = normalizeIdentityText(record.state);
+  const normalizedNeighborhood = normalizeIdentityText(record.neighborhood);
+  const normalizedName = buildNameFingerprint(record.cafeName, [
+    record.city,
+    record.state,
+    record.neighborhood,
+    record.streetAddress
+  ]);
+
+  return [normalizedName, normalizedStreet || normalizedNeighborhood || normalizedCity, normalizedState]
     .filter(Boolean)
     .join("|");
 }
@@ -306,7 +340,7 @@ function buildYourListShops(
   });
 
   for (const record of candidateRecords) {
-    const key = `${record.cafeName.trim().toLowerCase()}|${record.city?.toLowerCase() ?? ""}|${record.neighborhood?.toLowerCase() ?? ""}`;
+    const key = normalizeRecordIdentity(record);
     const current = grouped.get(key) ?? [];
     current.push(record);
     grouped.set(key, current);
@@ -406,7 +440,7 @@ function buildCuratedFallbackShops(
   });
 
   for (const record of candidateRecords) {
-    const key = `${record.cafeName.trim().toLowerCase()}|${record.city?.toLowerCase() ?? ""}|${record.neighborhood?.toLowerCase() ?? ""}`;
+    const key = normalizeRecordIdentity(record);
     const current = grouped.get(key) ?? [];
     current.push(record);
     grouped.set(key, current);
