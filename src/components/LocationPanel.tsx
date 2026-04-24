@@ -57,10 +57,6 @@ export function LocationPanel({
           </div>
         </div>
 
-        <div className="nav-links">
-          <a href="#results">Results</a>
-          <a href="#about">About</a>
-        </div>
       </nav>
 
       <div className="hero-layout hero-layout-compact">
