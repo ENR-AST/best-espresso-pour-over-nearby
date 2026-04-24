@@ -72,8 +72,6 @@ export function CafeCard({ shop, onViewDetails }: CafeCardProps) {
         </div>
       </div>
 
-      {yourRank !== null ? <p className="personal-score-line">From your admin rank</p> : null}
-
       <button className="details-link compact" onClick={() => onViewDetails(shop)}>
         View more details
       </button>
