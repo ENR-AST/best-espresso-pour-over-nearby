@@ -111,7 +111,7 @@ export function LocationPanel({
                   <span />
                   <span />
                 </span>
-                <strong>{isLoading ? "WORKING" : "READY"}</strong>
+                <strong>{isLoading ? "SEARCHING" : "READY"}</strong>
               </span>
               <button className="action-button primary" onClick={onUseMyLocation} disabled={isLoading}>
                 {isLoading ? "Finding coffee..." : "Use my location"}
@@ -136,7 +136,7 @@ export function LocationPanel({
                   <span />
                   <span />
                 </span>
-                <strong>{isLoading ? "WORKING" : "READY"}</strong>
+                <strong>{isLoading ? "SEARCHING" : "READY"}</strong>
               </span>
               <button className="cta-secondary" onClick={onSearch} disabled={isLoading}>
                 {isLoading ? "Searching..." : "Search"}
