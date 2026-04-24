@@ -121,22 +121,26 @@ function mergeUniqueStrings(current: string[] = [], incoming: string[] = []) {
 }
 
 function extractOwnerRankFromShop(shop: CoffeeShop): number {
-  const rankNote = shop.signalNotes?.find((note) => /your overall rank is/i.test(note));
-  if (!rankNote) return -1;
+  const ranks = (shop.signalNotes ?? [])
+    .filter((note) => /your overall rank is/i.test(note))
+    .map((note) => {
+      const match100 = note.match(/(\d+(?:\.\d+)?)\/100/);
+      if (match100) {
+        const parsed = Number(match100[1]);
+        return Number.isFinite(parsed) ? parsed : -1;
+      }
 
-  const match100 = rankNote.match(/(\d+(?:\.\d+)?)\/100/);
-  if (match100) {
-    const parsed = Number(match100[1]);
-    return Number.isFinite(parsed) ? parsed : -1;
-  }
+      const match10 = note.match(/(\d+(?:\.\d+)?)\/10/);
+      if (match10) {
+        const parsed = Number(match10[1]);
+        return Number.isFinite(parsed) ? parsed * 10 : -1;
+      }
 
-  const match10 = rankNote.match(/(\d+(?:\.\d+)?)\/10/);
-  if (match10) {
-    const parsed = Number(match10[1]);
-    return Number.isFinite(parsed) ? parsed * 10 : -1;
-  }
+      return -1;
+    })
+    .filter((rank) => rank >= 0);
 
-  return -1;
+  return ranks.length > 0 ? Math.max(...ranks) : -1;
 }
 
 function pickPreferredShop(left: CoffeeShop, right: CoffeeShop): CoffeeShop {
@@ -260,10 +264,11 @@ function normalizeRankedShopIdentity(shop: RankedCoffeeShop): string {
     shop.neighborhood,
     shop.streetAddress
   ]);
+  const isYourSelection = shop.discoveredByYou || shop.ownerRank !== undefined;
 
   return [
     normalizedName,
-    normalizedStreet || normalizedNeighborhood || normalizedCity,
+    isYourSelection ? normalizedCity : normalizedStreet || normalizedNeighborhood || normalizedCity,
     normalizedState
   ]
     .filter(Boolean)
@@ -285,6 +290,19 @@ function normalizeRecordIdentity(record: CuratedCafeRecord): string {
   return [normalizedName, normalizedStreet || normalizedNeighborhood || normalizedCity, normalizedState]
     .filter(Boolean)
     .join("|");
+}
+
+function normalizeYourListRecordIdentity(record: CuratedCafeRecord): string {
+  const normalizedCity = normalizeIdentityText(record.city);
+  const normalizedState = normalizeIdentityText(record.state);
+  const normalizedName = buildNameFingerprint(record.cafeName, [
+    record.city,
+    record.state,
+    record.neighborhood,
+    record.streetAddress
+  ]);
+
+  return [normalizedName, normalizedCity, normalizedState].filter(Boolean).join("|");
 }
 
 function dedupeRankedShops(shops: RankedCoffeeShop[]): RankedCoffeeShop[] {
@@ -340,7 +358,7 @@ function buildYourListShops(
   });
 
   for (const record of candidateRecords) {
-    const key = normalizeRecordIdentity(record);
+    const key = normalizeYourListRecordIdentity(record);
     const current = grouped.get(key) ?? [];
     current.push(record);
     grouped.set(key, current);

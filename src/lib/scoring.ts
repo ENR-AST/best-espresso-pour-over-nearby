@@ -64,23 +64,30 @@ export function getSupportLabels(shop: CoffeeShop): string[] {
 }
 
 function getOwnerRank(shop: CoffeeShop): number | undefined {
-  const rankNote = shop.signalNotes?.find((note) => /your overall rank is/i.test(note));
-  if (!rankNote) {
+  const ranks = (shop.signalNotes ?? [])
+    .filter((note) => /your overall rank is/i.test(note))
+    .map((note) => {
+      const match100 = note.match(/(\d+(?:\.\d+)?)\/100/);
+      if (match100) {
+        const parsed = Number(match100[1]);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      }
+
+      const match10 = note.match(/(\d+(?:\.\d+)?)\/10/);
+      if (match10) {
+        const parsed = Number(match10[1]);
+        return Number.isFinite(parsed) ? parsed * 10 : undefined;
+      }
+
+      return undefined;
+    })
+    .filter((rank): rank is number => rank !== undefined);
+
+  if (ranks.length === 0) {
     return undefined;
   }
 
-  const match100 = rankNote.match(/(\d+(?:\.\d+)?)\/100/);
-  if (match100) {
-    const parsed = Number(match100[1]);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-
-  const match10 = rankNote.match(/(\d+(?:\.\d+)?)\/10/);
-  if (match10) {
-    const parsed = Number(match10[1]);
-    return Number.isFinite(parsed) ? parsed * 10 : undefined;
-  }
-  return undefined;
+  return Math.max(...ranks);
 }
 
 export function scoreShop(
