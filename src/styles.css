@@ -252,6 +252,11 @@ a { color: inherit; text-decoration: none; }
   gap: 0.75rem;
   flex-wrap: wrap;
 }
+.compact-heading h3,
+.my-coffee-column h4 {
+  margin: 0;
+  font-family: "Alegreya", serif;
+}
 .results-badge {
   padding: 0.42rem 0.72rem;
   border-radius: 999px;
@@ -271,6 +276,25 @@ a { color: inherit; text-decoration: none; }
 .filter-chip.active { background: var(--olive); color: white; }
 .content-grid { display: grid; gap: 0.85rem; }
 .results-list { display: grid; gap: 0.75rem; }
+.my-coffees-shell {
+  margin-bottom: 1rem;
+  padding: 0.95rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(93, 58, 35, 0.06);
+}
+.my-coffee-columns {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+.my-coffee-column {
+  display: grid;
+  gap: 0.65rem;
+}
+.compact-results-list .cafe-card {
+  padding: 0.8rem;
+}
 .admin-grid { display: grid; gap: 1rem; margin-top: 1rem; }
 .admin-card {
   border: 1px solid var(--line);
@@ -576,6 +600,7 @@ a { color: inherit; text-decoration: none; }
   .manual-search, .status-grid, .top-pick-stats, .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .content-grid { grid-template-columns: minmax(0, 1.35fr) minmax(340px, 1fr); align-items: start; }
+  .my-coffee-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .architecture-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .admin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-card-wide { grid-column: 1 / -1; }

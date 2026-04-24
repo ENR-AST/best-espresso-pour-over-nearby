@@ -11,16 +11,17 @@ import { mockCoffeeShops } from "./data/mockCoffeeShops";
 import { enrichCoffeeShopsWithCuratedSignals } from "./lib/curatedEnrichment";
 import { loadCuratedCafeRecords } from "./lib/curatedSourceStore";
 import { getDistanceMiles } from "./lib/geo";
+import {
+  loadSavedCitiesFromStorage,
+  loadSavedCitiesFromSupabase,
+  saveSavedCitiesToStorage,
+  saveSavedCitiesToSupabase,
+  type SavedCity
+} from "./lib/savedCities";
 import { fetchNearbyCoffeeShops, geocodeLocation, isExcludedLargeChain, reverseGeocodeLocation } from "./lib/liveCoffee";
 import { rankCoffeeShops } from "./lib/scoring";
 import type { CoffeeShop, CuratedCafeRecord, FilterKey, RankedCoffeeShop, SearchLocation, SearchMode } from "./types/coffee";
 
-interface SavedCity {
-  label: string;
-  value: string;
-}
-
-const SAVED_CITIES_STORAGE_KEY = "wali-espresso-saved-cities";
 const defaultSavedCities: SavedCity[] = [
   { label: "Jersey City", value: "Jersey City, NJ" },
   { label: "New York City", value: "New York City, NY" },
@@ -41,22 +42,6 @@ function createSavedCityLabel(value: string): string {
     .trim()
     .replace(/\s+/g, " ")
     .replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-function loadSavedCities(): SavedCity[] {
-  if (typeof window === "undefined") return defaultSavedCities;
-
-  try {
-    const raw = window.localStorage.getItem(SAVED_CITIES_STORAGE_KEY);
-    if (!raw) return defaultSavedCities;
-
-    const parsed = JSON.parse(raw) as SavedCity[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return defaultSavedCities;
-
-    return parsed.filter((entry) => entry?.label && entry?.value);
-  } catch {
-    return defaultSavedCities;
-  }
 }
 
 function getNearestPrototypeMarket(latitude: number, longitude: number): SearchLocation {
@@ -366,7 +351,8 @@ function App() {
   const [resultsLocation, setResultsLocation] = useState<SearchLocation>(defaultLocation);
   const [locationInput, setLocationInput] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("current");
-  const [savedCities, setSavedCities] = useState<SavedCity[]>(() => loadSavedCities());
+  const [savedCities, setSavedCities] = useState<SavedCity[]>(() => loadSavedCitiesFromStorage(defaultSavedCities));
+  const [savedCitiesReady, setSavedCitiesReady] = useState(false);
   const [geoStatus, setGeoStatus] = useState("Choose your location, city, or ZIP code to begin.");
   const [resultsStatus, setResultsStatus] = useState<"live" | "fallback">("fallback");
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
@@ -406,6 +392,26 @@ function App() {
   const rankedShops = useMemo(() => {
     return rankCoffeeShops(displayShops, resultsLocation, activeFilters);
   }, [displayShops, resultsLocation, activeFilters]);
+
+  const mySelectedCoffees = useMemo(
+    () => rankedShops.filter((shop) => shop.ownerRank !== undefined && shop.ownerRank > 50),
+    [rankedShops]
+  );
+
+  const myBestEspresso = useMemo(
+    () => mySelectedCoffees.filter((shop) => shop.tags.includes("espresso")),
+    [mySelectedCoffees]
+  );
+
+  const myBestPourOver = useMemo(
+    () => mySelectedCoffees.filter((shop) => shop.tags.includes("pour-over")),
+    [mySelectedCoffees]
+  );
+
+  const otherNearbyCoffees = useMemo(
+    () => rankedShops.filter((shop) => !(shop.ownerRank !== undefined && shop.ownerRank > 50)),
+    [rankedShops]
+  );
 
   const resetToDefault = useCallback((status = "Choose your location, city, or ZIP code to begin.") => {
     setLocation(defaultLocation);
@@ -550,8 +556,21 @@ function App() {
   }, [refreshCuratedRecords]);
 
   useEffect(() => {
-    window.localStorage.setItem(SAVED_CITIES_STORAGE_KEY, JSON.stringify(savedCities));
-  }, [savedCities]);
+    void (async () => {
+      const supabaseCities = await loadSavedCitiesFromSupabase();
+      if (supabaseCities && supabaseCities.length > 0) {
+        setSavedCities(supabaseCities);
+        saveSavedCitiesToStorage(supabaseCities);
+      }
+      setSavedCitiesReady(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!savedCitiesReady) return;
+    saveSavedCitiesToStorage(savedCities);
+    void saveSavedCitiesToSupabase(savedCities);
+  }, [savedCities, savedCitiesReady]);
 
   async function handleSearch() {
     const requestId = beginLocationRequest();
@@ -805,11 +824,58 @@ function App() {
 
         <FilterBar activeFilters={activeFilters} onToggleFilter={handleToggleFilter} />
 
+        {mySelectedCoffees.length > 0 ? (
+          <section className="my-coffees-shell">
+            <div className="section-heading compact-heading">
+              <div>
+                <p className="eyebrow">My Coffees</p>
+                <h3>Your selected coffee first</h3>
+              </div>
+            </div>
+
+            <div className="my-coffee-columns">
+              <div className="my-coffee-column">
+                <h4>Best espresso</h4>
+                <div className="results-list compact-results-list">
+                  {myBestEspresso.length > 0 ? (
+                    myBestEspresso.map((shop) => (
+                      <CafeCard key={`espresso-${shop.id}`} shop={shop} onViewDetails={setSelectedShop} />
+                    ))
+                  ) : (
+                    <p className="admin-status">No espresso picks above 50 yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="my-coffee-column">
+                <h4>Best pour over</h4>
+                <div className="results-list compact-results-list">
+                  {myBestPourOver.length > 0 ? (
+                    myBestPourOver.map((shop) => (
+                      <CafeCard key={`pourover-${shop.id}`} shop={shop} onViewDetails={setSelectedShop} />
+                    ))
+                  ) : (
+                    <p className="admin-status">No pour-over picks above 50 yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <div className="content-grid">
-          <div className="results-list">
-            {rankedShops.map((shop) => (
-              <CafeCard key={shop.id} shop={shop} onViewDetails={setSelectedShop} />
-            ))}
+          <div>
+            <div className="section-heading compact-heading">
+              <div>
+                <p className="eyebrow">Nearby</p>
+                <h3>Other nearby coffee</h3>
+              </div>
+            </div>
+            <div className="results-list">
+              {otherNearbyCoffees.map((shop) => (
+                <CafeCard key={shop.id} shop={shop} onViewDetails={setSelectedShop} />
+              ))}
+            </div>
           </div>
 
           <MapCardRail shops={rankedShops} location={resultsLocation} />

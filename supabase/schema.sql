@@ -46,3 +46,12 @@ create table if not exists curated_mentions (
 
 create index if not exists curated_mentions_source_idx on curated_mentions(source_id);
 create index if not exists curated_mentions_cafe_idx on curated_mentions(cafe_id);
+
+create table if not exists personal_saved_cities (
+  id bigint generated always as identity primary key,
+  label text not null,
+  value text not null unique,
+  position integer not null default 0
+);
+
+create index if not exists personal_saved_cities_position_idx on personal_saved_cities(position);
