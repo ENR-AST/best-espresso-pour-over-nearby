@@ -86,6 +86,54 @@ function mergeUniqueStrings(current: string[] = [], incoming: string[] = []) {
   return Array.from(new Set([...current, ...incoming].filter(Boolean)));
 }
 
+function extractOwnerRankFromShop(shop: CoffeeShop): number {
+  const rankNote = shop.signalNotes?.find((note) => /your overall rank is/i.test(note));
+  if (!rankNote) return -1;
+
+  const match100 = rankNote.match(/(\d+(?:\.\d+)?)\/100/);
+  if (match100) {
+    const parsed = Number(match100[1]);
+    return Number.isFinite(parsed) ? parsed : -1;
+  }
+
+  const match10 = rankNote.match(/(\d+(?:\.\d+)?)\/10/);
+  if (match10) {
+    const parsed = Number(match10[1]);
+    return Number.isFinite(parsed) ? parsed * 10 : -1;
+  }
+
+  return -1;
+}
+
+function pickPreferredShop(left: CoffeeShop, right: CoffeeShop): CoffeeShop {
+  const leftRank = extractOwnerRankFromShop(left);
+  const rightRank = extractOwnerRankFromShop(right);
+  const leftIsYours = left.id.startsWith("your-list-") || left.discoveredByYou || leftRank >= 0;
+  const rightIsYours = right.id.startsWith("your-list-") || right.discoveredByYou || rightRank >= 0;
+
+  if (leftIsYours !== rightIsYours) {
+    return leftIsYours ? left : right;
+  }
+
+  if (leftRank !== rightRank) {
+    return leftRank > rightRank ? left : right;
+  }
+
+  const leftCompleteness = [left.streetAddress, left.city, left.state, left.zipCode].filter(Boolean).length;
+  const rightCompleteness = [right.streetAddress, right.city, right.state, right.zipCode].filter(Boolean).length;
+  if (leftCompleteness !== rightCompleteness) {
+    return leftCompleteness > rightCompleteness ? left : right;
+  }
+
+  const leftSourceCount = left.sources.length;
+  const rightSourceCount = right.sources.length;
+  if (leftSourceCount !== rightSourceCount) {
+    return leftSourceCount > rightSourceCount ? left : right;
+  }
+
+  return left;
+}
+
 function mergeDuplicateShops(shops: CoffeeShop[]): CoffeeShop[] {
   const grouped = new Map<string, CoffeeShop>();
 
@@ -98,12 +146,7 @@ function mergeDuplicateShops(shops: CoffeeShop[]): CoffeeShop[] {
       continue;
     }
 
-    const preferred =
-      existing.id.startsWith("your-list-") || existing.discoveredByYou
-        ? existing
-        : shop.id.startsWith("your-list-") || shop.discoveredByYou
-          ? shop
-          : existing;
+    const preferred = pickPreferredShop(existing, shop);
     const secondary = preferred === existing ? shop : existing;
 
     grouped.set(key, {
@@ -140,6 +183,36 @@ function mergeDuplicateShops(shops: CoffeeShop[]): CoffeeShop[] {
   }
 
   return Array.from(grouped.values());
+}
+
+function splitSelectedCoffeeGroups(shops: RankedCoffeeShop[]) {
+  const bestEspresso: RankedCoffeeShop[] = [];
+  const bestPourOver: RankedCoffeeShop[] = [];
+
+  for (const shop of shops) {
+    const hasEspresso = shop.tags.includes("espresso");
+    const hasPourOver = shop.tags.includes("pour-over");
+
+    if (hasEspresso && hasPourOver) {
+      if (shop.espressoEvidence >= shop.pourOverEvidence) {
+        bestEspresso.push(shop);
+      } else {
+        bestPourOver.push(shop);
+      }
+      continue;
+    }
+
+    if (hasEspresso) {
+      bestEspresso.push(shop);
+      continue;
+    }
+
+    if (hasPourOver) {
+      bestPourOver.push(shop);
+    }
+  }
+
+  return { bestEspresso, bestPourOver };
 }
 
 function buildYourListShops(
@@ -398,13 +471,8 @@ function App() {
     [rankedShops]
   );
 
-  const myBestEspresso = useMemo(
-    () => mySelectedCoffees.filter((shop) => shop.tags.includes("espresso")),
-    [mySelectedCoffees]
-  );
-
-  const myBestPourOver = useMemo(
-    () => mySelectedCoffees.filter((shop) => shop.tags.includes("pour-over")),
+  const { bestEspresso: myBestEspresso, bestPourOver: myBestPourOver } = useMemo(
+    () => splitSelectedCoffeeGroups(mySelectedCoffees),
     [mySelectedCoffees]
   );
 
