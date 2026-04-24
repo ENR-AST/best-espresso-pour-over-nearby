@@ -828,7 +828,7 @@ function App() {
           <section className="my-coffees-shell">
             <div className="section-heading compact-heading">
               <div>
-                <p className="eyebrow">My Coffees</p>
+                <p className="eyebrow">Wali's Selected Coffees</p>
                 <h3>Your selected coffee first</h3>
               </div>
             </div>
