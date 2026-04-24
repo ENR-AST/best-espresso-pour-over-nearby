@@ -215,6 +215,41 @@ function splitSelectedCoffeeGroups(shops: RankedCoffeeShop[]) {
   return { bestEspresso, bestPourOver };
 }
 
+function normalizeRankedShopIdentity(shop: RankedCoffeeShop): string {
+  const normalize = (value: string | undefined) =>
+    (value ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ");
+
+  return [
+    normalize(shop.name),
+    normalize(shop.city),
+    normalize(shop.state) || normalize(shop.neighborhood)
+  ]
+    .filter(Boolean)
+    .join("|");
+}
+
+function dedupeRankedShops(shops: RankedCoffeeShop[]): RankedCoffeeShop[] {
+  const grouped = new Map<string, RankedCoffeeShop>();
+
+  for (const shop of shops) {
+    const key = normalizeRankedShopIdentity(shop);
+    const existing = grouped.get(key);
+
+    if (!existing) {
+      grouped.set(key, shop);
+      continue;
+    }
+
+    const preferred = pickPreferredShop(existing, shop) === existing ? existing : shop;
+    grouped.set(key, preferred);
+  }
+
+  return Array.from(grouped.values());
+}
+
 function buildYourListShops(
   curatedRecords: CuratedCafeRecord[],
   resultsLocation: SearchLocation,
@@ -463,7 +498,7 @@ function App() {
   }, [shops, curatedRecords, resultsLocation]);
 
   const rankedShops = useMemo(() => {
-    return rankCoffeeShops(displayShops, resultsLocation, activeFilters);
+    return dedupeRankedShops(rankCoffeeShops(displayShops, resultsLocation, activeFilters));
   }, [displayShops, resultsLocation, activeFilters]);
 
   const mySelectedCoffees = useMemo(
@@ -477,8 +512,11 @@ function App() {
   );
 
   const otherNearbyCoffees = useMemo(
-    () => rankedShops.filter((shop) => !(shop.ownerRank !== undefined && shop.ownerRank > 50)),
-    [rankedShops]
+    () => {
+      const selectedKeys = new Set(mySelectedCoffees.map((shop) => normalizeRankedShopIdentity(shop)));
+      return rankedShops.filter((shop) => !selectedKeys.has(normalizeRankedShopIdentity(shop)));
+    },
+    [rankedShops, mySelectedCoffees]
   );
 
   const resetToDefault = useCallback((status = "Choose your location, city, or ZIP code to begin.") => {
