@@ -71,6 +71,41 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizeCafeIdentityPart(value: string | undefined | null): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+async function findExistingCuratedCafe(input: {
+  name: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+}): Promise<AdminCafeRow | null> {
+  requireSupabase();
+  const normalizedName = normalizeCafeIdentityPart(input.name);
+  const normalizedStreet = normalizeCafeIdentityPart(input.streetAddress);
+  const normalizedCity = normalizeCafeIdentityPart(input.city);
+  const normalizedState = normalizeCafeIdentityPart(input.state);
+  const normalizedZip = normalizeCafeIdentityPart(input.zipCode);
+
+  const cafes = await listCuratedCafes();
+  return (
+    cafes.find((cafe) => {
+      return (
+        normalizeCafeIdentityPart(cafe.name) === normalizedName &&
+        normalizeCafeIdentityPart(cafe.street_address) === normalizedStreet &&
+        normalizeCafeIdentityPart(cafe.city) === normalizedCity &&
+        normalizeCafeIdentityPart(cafe.state) === normalizedState &&
+        normalizeCafeIdentityPart(cafe.zip_code) === normalizedZip
+      );
+    }) ?? null
+  );
+}
+
 export async function sendAdminMagicLink(email: string): Promise<void> {
   const supabase = requireSupabase();
   const redirectTo =
@@ -226,6 +261,42 @@ export async function createCuratedCafe(input: {
   tags: Tag[];
 }): Promise<AdminCafeRow> {
   const supabase = requireSupabase();
+  const existingCafe = await findExistingCuratedCafe(input);
+  if (existingCafe) {
+    const mergedTags = Array.from(new Set([...(existingCafe.tags ?? []), ...input.tags]));
+    const { error: updateError } = await supabase
+      .from("curated_cafes")
+      .update({
+        name: input.name,
+        street_address: input.streetAddress ?? null,
+        city: input.city ?? null,
+        state: input.state ?? null,
+        neighborhood: input.neighborhood ?? existingCafe.neighborhood ?? null,
+        zip_code: input.zipCode ?? null,
+        latitude: input.latitude ?? existingCafe.latitude ?? null,
+        longitude: input.longitude ?? existingCafe.longitude ?? null,
+        tags: mergedTags
+      })
+      .eq("id", existingCafe.id);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    return {
+      ...existingCafe,
+      name: input.name,
+      street_address: input.streetAddress ?? existingCafe.street_address,
+      city: input.city ?? existingCafe.city,
+      state: input.state ?? existingCafe.state,
+      neighborhood: input.neighborhood ?? existingCafe.neighborhood,
+      zip_code: input.zipCode ?? existingCafe.zip_code,
+      latitude: input.latitude ?? existingCafe.latitude,
+      longitude: input.longitude ?? existingCafe.longitude,
+      tags: mergedTags
+    };
+  }
+
   const slug = slugify([input.name, input.city ?? "", input.neighborhood ?? "", input.streetAddress ?? ""].filter(Boolean).join("-"));
   const { error } = await supabase
     .from("curated_cafes")
@@ -361,6 +432,18 @@ export async function updatePersonalCafe(
   const trimmedZipCode = input.zipCode?.trim();
   if (!trimmedZipCode) {
     throw new Error("ZIP code is required.");
+  }
+
+  const duplicateCafe = await findExistingCuratedCafe({
+    name: trimmedName,
+    streetAddress: trimmedStreetAddress,
+    city: trimmedCity,
+    state: trimmedState,
+    zipCode: trimmedZipCode
+  });
+
+  if (duplicateCafe && duplicateCafe.id !== cafeId) {
+    throw new Error("That coffee shop already exists in your database.");
   }
 
   const geocodeQuery = [trimmedStreetAddress, trimmedCity, trimmedState, trimmedZipCode].filter(Boolean).join(", ");

@@ -19,6 +19,15 @@ create table if not exists curated_cafes (
   tags text[] not null default array['specialty']::text[]
 );
 
+create unique index if not exists curated_cafes_identity_idx
+on curated_cafes (
+  lower(name),
+  lower(coalesce(street_address, '')),
+  lower(coalesce(city, '')),
+  lower(coalesce(state, '')),
+  lower(coalesce(zip_code, ''))
+);
+
 alter table curated_cafes add column if not exists street_address text;
 alter table curated_cafes add column if not exists state text;
 alter table curated_cafes add column if not exists zip_code text;
