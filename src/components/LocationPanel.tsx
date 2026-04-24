@@ -105,6 +105,14 @@ export function LocationPanel({
         {searchMode === "current" ? (
           <div className="current-location-panel">
             <div className="search-action-row">
+              <span className={isLoading ? "status-badge working inline" : "status-badge ready inline"}>
+                <span className="status-indicator" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <strong>{isLoading ? "WORKING" : "READY"}</strong>
+              </span>
               <button className="action-button primary" onClick={onUseMyLocation} disabled={isLoading}>
                 {isLoading ? "Finding coffee..." : "Use my location"}
               </button>
@@ -122,6 +130,14 @@ export function LocationPanel({
               placeholder={placeholder}
             />
             <div className="search-action-row">
+              <span className={isLoading ? "status-badge working inline" : "status-badge ready inline"}>
+                <span className="status-indicator" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <strong>{isLoading ? "WORKING" : "READY"}</strong>
+              </span>
               <button className="cta-secondary" onClick={onSearch} disabled={isLoading}>
                 {isLoading ? "Searching..." : "Search"}
               </button>
@@ -165,14 +181,6 @@ export function LocationPanel({
         </div>
 
         <div className={isLoading ? "status-strip working" : "status-strip ready"}>
-          <span className={isLoading ? "status-badge working" : "status-badge ready"}>
-            <span className="status-indicator" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </span>
-            <strong>{isLoading ? "WORKING" : "READY"}</strong>
-          </span>
           <span>{geoStatus}</span>
         </div>
       </div>
